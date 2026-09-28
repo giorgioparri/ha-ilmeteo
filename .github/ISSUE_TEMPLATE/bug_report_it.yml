@@ -16,7 +16,7 @@ body:
       label: Conferma che la segnalazione è pertinente
       options:
         - label: >-
-            Sono consapevole che naked-head è un maintainer scorbutico, quindi può
+            Sono consapevole che giorgioparri è un maintainer scorbutico, quindi può
             capitare che la mia issue venga chiusa rapidamente se mancano
             informazioni essenziali (nessun log, nessuna descrizione, nessun
             passaggio per riprodurre il problema, ecc.).
@@ -41,9 +41,9 @@ body:
         - label: |
             Confermo che in realtà non ho letto nessuno dei punti sopra e li ho semplicemente spuntati tutti. |
             Non volevo perdere tempo sui dettagli, quindi ho saltato la lettura o il rispetto delle istruzioni esistenti. |
-            Preferirei che naked-head passasse il suo tempo libero a spiegarmi le cose — no perché l'open source è fatto apposta per questo, giusto? |
+            Preferirei che giorgioparri passasse il suo tempo libero a spiegarmi le cose — no perché l'open source è fatto apposta per questo, giusto? |
             Vivo secondo il motto: meglio chiedere due volte che pensare una volta. |
-            È colpa di naked-head se offre software open source e supporto gratuito.
+            È colpa di giorgioparri se offre software open source e supporto gratuito.
 
   - type: input
     id: integration_version

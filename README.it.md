@@ -41,7 +41,7 @@ Un'integrazione per [Home Assistant](https://www.home-assistant.io/) che espone 
 
 ## Screenshot
 
-![iLMeteo.it weather card](https://raw.githubusercontent.com/giorgioparri/ha-ilmeteo/main/images/card-demo.png)
+![iLMeteo.it weather card](https://raw.githubusercontent.com/giorgioparri/ha-ilmeteo/v1.2.2/images/card-demo.png)
 
 ---
 

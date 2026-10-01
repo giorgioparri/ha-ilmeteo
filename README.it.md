@@ -1,17 +1,17 @@
 <p align="center">
-  <a href="https://www.ilmeteo.it/" target="_blank"><img src="https://raw.githubusercontent.com/naked-head/ha-ilmeteo/HEAD/images/logo.png" alt="iLMeteo.it" width="120"></a>
+  <a href="https://www.ilmeteo.it/" target="_blank"><img src="https://raw.githubusercontent.com/giorgioparri/ha-ilmeteo/HEAD/images/logo.png" alt="iLMeteo.it" width="120"></a>
 </p>
 
-<p align="right"><a href="https://github.com/naked-head/ha-ilmeteo/blob/HEAD/README.md">🇬🇧 Read in English</a></p>
+<p align="right"><a href="https://github.com/giorgioparri/ha-ilmeteo/blob/HEAD/README.md">🇬🇧 Read in English</a></p>
 
 # iLMeteo.it — Integrazione personalizzata per Home Assistant
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Default-orange.svg)](https://github.com/hacs/default)
-[![GitHub Release](https://img.shields.io/github/release/naked-head/ha-ilmeteo.svg)](https://github.com/naked-head/ha-ilmeteo/releases)
-[![Validate](https://github.com/naked-head/ha-ilmeteo/actions/workflows/validate.yml/badge.svg)](https://github.com/naked-head/ha-ilmeteo/actions/workflows/validate.yml)
-[![License](https://img.shields.io/github/license/naked-head/ha-ilmeteo)](https://github.com/naked-head/ha-ilmeteo/blob/HEAD/LICENSE)
+[![GitHub Release](https://img.shields.io/github/release/giorgioparri/ha-ilmeteo.svg)](https://github.com/giorgioparri/ha-ilmeteo/releases)
+[![Validate](https://github.com/giorgioparri/ha-ilmeteo/actions/workflows/validate.yml/badge.svg)](https://github.com/giorgioparri/ha-ilmeteo/actions/workflows/validate.yml)
+[![License](https://img.shields.io/github/license/giorgioparri/ha-ilmeteo)](https://github.com/giorgioparri/ha-ilmeteo/blob/HEAD/LICENSE)
 
-[![Apri la tua istanza Home Assistant e aggiungi questa integrazione.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=naked-head&repository=ha-ilmeteo&category=integration)
+[![Apri la tua istanza Home Assistant e aggiungi questa integrazione.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=giorgioparri&repository=ha-ilmeteo&category=integration)
 
 Un'integrazione per [Home Assistant](https://www.home-assistant.io/) che espone i dati meteo di **[iLMeteo.it](https://www.ilmeteo.it/)** come entità `weather` native, con previsioni **giornaliere** e **orarie** (triorarie) — esattamente come le integrazioni OpenWeatherMap o Met.no.
 
@@ -41,7 +41,7 @@ Un'integrazione per [Home Assistant](https://www.home-assistant.io/) che espone 
 
 ## Screenshot
 
-![iLMeteo.it weather card](https://raw.githubusercontent.com/naked-head/ha-ilmeteo/main/images/card-demo.png)
+![iLMeteo.it weather card](https://raw.githubusercontent.com/giorgioparri/ha-ilmeteo/main/images/card-demo.png)
 
 ---
 
@@ -56,7 +56,7 @@ L'integrazione è nel catalogo predefinito di HACS: non serve aggiungere un repo
 
 ### Manuale
 
-1. Scarica l'ultima [release](https://github.com/naked-head/ha-ilmeteo/releases/latest)
+1. Scarica l'ultima [release](https://github.com/giorgioparri/ha-ilmeteo/releases/latest)
 2. Copia `custom_components/ilmeteo` in `/config/custom_components/`
 3. Riavvia Home Assistant
 
@@ -149,13 +149,13 @@ python scripts/build_locations.py codici_comuni.csv codici_province.csv \
 
 ## Changelog
 
-Vedi [CHANGELOG.md](https://github.com/naked-head/ha-ilmeteo/blob/HEAD/CHANGELOG.md) per la cronologia completa delle versioni.
+Vedi [CHANGELOG.md](https://github.com/giorgioparri/ha-ilmeteo/blob/HEAD/CHANGELOG.md) per la cronologia completa delle versioni.
 
 ---
 
 ## Licenza
 
-Apache-2.0 — vedi [LICENSE](https://github.com/naked-head/ha-ilmeteo/blob/HEAD/LICENSE)
+Apache-2.0 — vedi [LICENSE](https://github.com/giorgioparri/ha-ilmeteo/blob/HEAD/LICENSE)
 
 ## Disclaimer
 

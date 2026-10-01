@@ -100,7 +100,7 @@ class IlMeteoCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     "place_name": self.place_name,
                     "box_type": box_type,
                 },
-                learn_more_url="https://github.com/naked-head/ha-ilmeteo/issues",
+                learn_more_url="https://github.com/giorgioparri/ha-ilmeteo/issues",
             )
             return self._last_good.get(box_type, default)
         except IlMeteoError as err:

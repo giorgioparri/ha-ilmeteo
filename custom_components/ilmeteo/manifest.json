@@ -1,12 +1,12 @@
 {
   "domain": "ilmeteo",
   "name": "iLMeteo.it",
-  "codeowners": ["@naked-head"],
+  "codeowners": ["@giorgioparri"],
   "config_flow": true,
   "dependencies": [],
-  "documentation": "https://github.com/naked-head/ha-ilmeteo",
+  "documentation": "https://github.com/giorgioparri/ha-ilmeteo",
   "iot_class": "cloud_polling",
-  "issue_tracker": "https://github.com/naked-head/ha-ilmeteo/issues",
+  "issue_tracker": "https://github.com/giorgioparri/ha-ilmeteo/issues",
   "requirements": [],
-  "version": "1.2.1"
+  "version": "1.2.2"
 }

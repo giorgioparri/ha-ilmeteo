@@ -11,7 +11,7 @@ DEFAULT_INFO_URL = "https://www.ilmeteo.it/"
 # main since it's a static asset that essentially never changes — unlike the
 # HACS README case, there's no "latest release tag" concern here.
 ILMETEO_LOGO_URL = (
-    "https://raw.githubusercontent.com/naked-head/ha-ilmeteo/main/"
+    "https://raw.githubusercontent.com/giorgioparri/ha-ilmeteo/main/"
     "custom_components/ilmeteo/brand/logo.png"
 )
 

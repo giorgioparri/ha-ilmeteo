@@ -6,7 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.2.2] - 2026-09-28
+
 ### Changed
+- The project moved to the GitHub username `giorgioparri` (previously `naked-head`): links in the README, documentation, issue tracker and code owner are updated. Nothing to do — existing installations keep working and GitHub redirects the old repository URLs.
 - The header logo is referenced at `HEAD` instead of `main`, so it keeps resolving if the default branch is ever renamed.
 - The release workflow now checks that the card screenshot is pinned to the tag being released, so the README shown in HACS matches the installed version.
 
@@ -197,33 +200,34 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Added
 - Initial draft based on the official iLMeteo REST API (later abandoned, enterprise-only).
 
-[Unreleased]: https://github.com/naked-head/ha-ilmeteo/compare/v1.2.1...HEAD
-[1.2.1]: https://github.com/naked-head/ha-ilmeteo/compare/v1.2.0...v1.2.1
-[1.2.0]: https://github.com/naked-head/ha-ilmeteo/compare/v1.1.4...v1.2.0
-[1.1.4]: https://github.com/naked-head/ha-ilmeteo/compare/v1.1.3...v1.1.4
-[1.1.3]: https://github.com/naked-head/ha-ilmeteo/compare/v1.1.2...v1.1.3
-[1.1.2]: https://github.com/naked-head/ha-ilmeteo/compare/v1.1.1...v1.1.2
-[1.1.1]: https://github.com/naked-head/ha-ilmeteo/compare/v1.1.0...v1.1.1
-[1.1.0]: https://github.com/naked-head/ha-ilmeteo/compare/v1.0.1...v1.1.0
-[1.0.1]: https://github.com/naked-head/ha-ilmeteo/compare/v1.0.0...v1.0.1
-[1.0.0]: https://github.com/naked-head/ha-ilmeteo/compare/v0.7.5...v1.0.0
-[0.7.5]: https://github.com/naked-head/ha-ilmeteo/compare/v0.7.4...v0.7.5
-[0.7.4]: https://github.com/naked-head/ha-ilmeteo/compare/v0.7.3...v0.7.4
-[0.7.3]: https://github.com/naked-head/ha-ilmeteo/compare/v0.7.2...v0.7.3
-[0.7.2]: https://github.com/naked-head/ha-ilmeteo/compare/v0.7.1...v0.7.2
-[0.7.1]: https://github.com/naked-head/ha-ilmeteo/compare/v0.7.0...v0.7.1
-[0.7.0]: https://github.com/naked-head/ha-ilmeteo/compare/v0.6.2...v0.7.0
-[0.6.2]: https://github.com/naked-head/ha-ilmeteo/compare/v0.6.1...v0.6.2
-[0.6.1]: https://github.com/naked-head/ha-ilmeteo/compare/v0.6.0...v0.6.1
-[0.6.0]: https://github.com/naked-head/ha-ilmeteo/compare/v0.5.1...v0.6.0
-[0.5.1]: https://github.com/naked-head/ha-ilmeteo/compare/v0.5.0...v0.5.1
-[0.5.0]: https://github.com/naked-head/ha-ilmeteo/compare/v0.4.1...v0.5.0
-[0.4.1]: https://github.com/naked-head/ha-ilmeteo/compare/v0.4.0...v0.4.1
-[0.4.0]: https://github.com/naked-head/ha-ilmeteo/compare/v0.3.4...v0.4.0
-[0.3.4]: https://github.com/naked-head/ha-ilmeteo/compare/v0.3.3...v0.3.4
-[0.3.3]: https://github.com/naked-head/ha-ilmeteo/compare/v0.3.2...v0.3.3
-[0.3.2]: https://github.com/naked-head/ha-ilmeteo/compare/v0.3.1...v0.3.2
-[0.3.1]: https://github.com/naked-head/ha-ilmeteo/compare/v0.3.0...v0.3.1
-[0.3.0]: https://github.com/naked-head/ha-ilmeteo/compare/v0.2.0...v0.3.0
-[0.2.0]: https://github.com/naked-head/ha-ilmeteo/compare/v0.1.0...v0.2.0
-[0.1.0]: https://github.com/naked-head/ha-ilmeteo/releases/tag/v0.1.0
+[Unreleased]: https://github.com/giorgioparri/ha-ilmeteo/compare/v1.2.2...HEAD
+[1.2.2]: https://github.com/giorgioparri/ha-ilmeteo/compare/v1.2.1...v1.2.2
+[1.2.1]: https://github.com/giorgioparri/ha-ilmeteo/compare/v1.2.0...v1.2.1
+[1.2.0]: https://github.com/giorgioparri/ha-ilmeteo/compare/v1.1.4...v1.2.0
+[1.1.4]: https://github.com/giorgioparri/ha-ilmeteo/compare/v1.1.3...v1.1.4
+[1.1.3]: https://github.com/giorgioparri/ha-ilmeteo/compare/v1.1.2...v1.1.3
+[1.1.2]: https://github.com/giorgioparri/ha-ilmeteo/compare/v1.1.1...v1.1.2
+[1.1.1]: https://github.com/giorgioparri/ha-ilmeteo/compare/v1.1.0...v1.1.1
+[1.1.0]: https://github.com/giorgioparri/ha-ilmeteo/compare/v1.0.1...v1.1.0
+[1.0.1]: https://github.com/giorgioparri/ha-ilmeteo/compare/v1.0.0...v1.0.1
+[1.0.0]: https://github.com/giorgioparri/ha-ilmeteo/compare/v0.7.5...v1.0.0
+[0.7.5]: https://github.com/giorgioparri/ha-ilmeteo/compare/v0.7.4...v0.7.5
+[0.7.4]: https://github.com/giorgioparri/ha-ilmeteo/compare/v0.7.3...v0.7.4
+[0.7.3]: https://github.com/giorgioparri/ha-ilmeteo/compare/v0.7.2...v0.7.3
+[0.7.2]: https://github.com/giorgioparri/ha-ilmeteo/compare/v0.7.1...v0.7.2
+[0.7.1]: https://github.com/giorgioparri/ha-ilmeteo/compare/v0.7.0...v0.7.1
+[0.7.0]: https://github.com/giorgioparri/ha-ilmeteo/compare/v0.6.2...v0.7.0
+[0.6.2]: https://github.com/giorgioparri/ha-ilmeteo/compare/v0.6.1...v0.6.2
+[0.6.1]: https://github.com/giorgioparri/ha-ilmeteo/compare/v0.6.0...v0.6.1
+[0.6.0]: https://github.com/giorgioparri/ha-ilmeteo/compare/v0.5.1...v0.6.0
+[0.5.1]: https://github.com/giorgioparri/ha-ilmeteo/compare/v0.5.0...v0.5.1
+[0.5.0]: https://github.com/giorgioparri/ha-ilmeteo/compare/v0.4.1...v0.5.0
+[0.4.1]: https://github.com/giorgioparri/ha-ilmeteo/compare/v0.4.0...v0.4.1
+[0.4.0]: https://github.com/giorgioparri/ha-ilmeteo/compare/v0.3.4...v0.4.0
+[0.3.4]: https://github.com/giorgioparri/ha-ilmeteo/compare/v0.3.3...v0.3.4
+[0.3.3]: https://github.com/giorgioparri/ha-ilmeteo/compare/v0.3.2...v0.3.3
+[0.3.2]: https://github.com/giorgioparri/ha-ilmeteo/compare/v0.3.1...v0.3.2
+[0.3.1]: https://github.com/giorgioparri/ha-ilmeteo/compare/v0.3.0...v0.3.1
+[0.3.0]: https://github.com/giorgioparri/ha-ilmeteo/compare/v0.2.0...v0.3.0
+[0.2.0]: https://github.com/giorgioparri/ha-ilmeteo/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/giorgioparri/ha-ilmeteo/releases/tag/v0.1.0

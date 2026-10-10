@@ -25,3 +25,5 @@ jobs:
         run: python tests/test_parser.py
       - name: Run alert tests
         run: python tests/test_alerts.py
+      - name: Run API client tests
+        run: python tests/test_api.py

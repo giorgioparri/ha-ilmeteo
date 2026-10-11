@@ -16,10 +16,12 @@ sys.path.insert(
 
 from const import (
     CONDITION_TEXT_MAP,
+    DEFAULT_INFO_URL,
     OUTLOOK_CONDITION_MAP,
     POURING_INTENSITIES,
     POURING_OUTLOOKS,
     outlook_to_condition,
+    place_page_url,
 )
 
 FIXTURES = os.path.join(os.path.dirname(__file__), "fixtures")
@@ -183,6 +185,43 @@ def test_every_outlook_in_the_fixtures_is_mapped():
             rows = json.load(f)[0]["forecasts"]
         for row in rows:
             assert outlook_to_condition(row["outlook"]) is not None, (name, row["outlook"])
+
+
+# --- iLMeteo page links ---------------------------------------------------
+
+# Notifications and device pages must link to the place's page on
+# ilmeteo.it (condition of iLMeteo's authorization). The API does not return
+# that URL, so it is built from the name. Rule checked on the live site:
+# spaces become '+', apostrophes stay, accents are dropped (the page for
+# "cefalù" declares https://www.ilmeteo.it/meteo/cefalu as canonical).
+
+
+def test_page_url_single_word():
+    assert place_page_url("Roma") == "https://www.ilmeteo.it/meteo/roma"
+
+
+def test_page_url_spaces_become_plus():
+    # The two districts linked in issue #1.
+    assert place_page_url("Roma Monte Sacro Alto") == "https://www.ilmeteo.it/meteo/roma+monte+sacro+alto"
+    assert place_page_url("Roma Testaccio") == "https://www.ilmeteo.it/meteo/roma+testaccio"
+
+
+def test_page_url_keeps_apostrophes():
+    assert place_page_url("Castiglione d'Orcia") == "https://www.ilmeteo.it/meteo/castiglione+d'orcia"
+
+
+def test_page_url_drops_accents():
+    assert place_page_url("Cefalù") == "https://www.ilmeteo.it/meteo/cefalu"
+
+
+def test_page_url_normalizes_whitespace():
+    assert place_page_url("  Rapolano   Terme ") == "https://www.ilmeteo.it/meteo/rapolano+terme"
+
+
+def test_page_url_without_a_name_falls_back_to_the_homepage():
+    assert place_page_url("") == DEFAULT_INFO_URL
+    assert place_page_url("   ") == DEFAULT_INFO_URL
+    assert place_page_url(None) == DEFAULT_INFO_URL
 
 
 if __name__ == "__main__":

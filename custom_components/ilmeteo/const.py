@@ -1,11 +1,15 @@
 """Constants for the iLMeteo.it integration."""
 
+import unicodedata
+from urllib.parse import quote
+
 DOMAIN = "ilmeteo"
 PLATFORMS = ["weather", "sensor"]
 
 DEFAULT_SCAN_INTERVAL = 1800  # seconds (30 minutes)
 DEFAULT_NUM_DAYS = 6
 DEFAULT_INFO_URL = "https://www.ilmeteo.it/"
+PLACE_PAGE_BASE_URL = "https://www.ilmeteo.it/meteo/"
 
 # Bundled at custom_components/ilmeteo/brand/logo.png (256x256). Served from
 # main since it's a static asset that essentially never changes — unlike the
@@ -197,3 +201,23 @@ def outlook_to_condition(
     if is_night and condition == "sunny":
         return "clear-night"
     return condition
+
+
+# ---------------------------------------------------------------------------
+# Link to the place's page on ilmeteo.it
+#
+# iLMeteo authorized the integration on condition that notifications link to
+# the location's page. The API Gateway does not return that URL, so it is
+# built from the place name with the rule the site uses: lowercase, accents
+# dropped, spaces as '+', apostrophes kept ("castiglione+d'orcia").
+# ---------------------------------------------------------------------------
+
+
+def place_page_url(name: str | None) -> str:
+    """Return the ilmeteo.it page of a place, or the homepage without a name."""
+    if not name or not name.strip():
+        return DEFAULT_INFO_URL
+    decomposed = unicodedata.normalize("NFKD", name)
+    plain = "".join(ch for ch in decomposed if not unicodedata.combining(ch))
+    slug = "+".join(plain.lower().split())
+    return PLACE_PAGE_BASE_URL + quote(slug, safe="+'")

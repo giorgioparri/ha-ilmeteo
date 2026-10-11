@@ -14,7 +14,13 @@ sys.path.insert(
     0, os.path.join(os.path.dirname(__file__), "..", "custom_components", "ilmeteo")
 )
 
-from const import CONDITION_TEXT_MAP, OUTLOOK_CONDITION_MAP, outlook_to_condition
+from const import (
+    CONDITION_TEXT_MAP,
+    OUTLOOK_CONDITION_MAP,
+    POURING_INTENSITIES,
+    POURING_OUTLOOKS,
+    outlook_to_condition,
+)
 
 FIXTURES = os.path.join(os.path.dirname(__file__), "fixtures")
 
@@ -120,6 +126,55 @@ def test_unknown_or_missing_code_is_none():
     assert outlook_to_condition(0) is None
     assert outlook_to_condition(25) is None
     assert outlook_to_condition(101) is None  # 1.x sprite night codes are not outlook codes
+
+
+# --- Pouring from precipitation intensity --------------------------------
+
+# Glossary order: ABSENT, SCANT, MODERATE, SUBSTANTIAL, COPIOUS, STRONG,
+# REALLY_STRONG. In the hourly fixture SUBSTANTIAL slots carry 0.7-1.8 mm/h,
+# COPIOUS 2 mm/h and the one STRONG slot 3.8 mm/h.
+
+
+def test_pouring_rule_constants():
+    assert {"STRONG", "REALLY_STRONG"} == POURING_INTENSITIES
+    # "pioggia e schiarite" (showers) and "pioggia"; "pioggia debole" never
+    # pours, whatever the intensity field says.
+    assert {5, 10} == POURING_OUTLOOKS
+
+
+def test_rain_becomes_pouring_only_at_strong_intensity():
+    for code in (5, 10):
+        for intensity in ("STRONG", "REALLY_STRONG"):
+            assert outlook_to_condition(code, intensity=intensity) == "pouring", (code, intensity)
+        for intensity in (None, "ABSENT", "SCANT", "MODERATE", "SUBSTANTIAL", "COPIOUS"):
+            assert outlook_to_condition(code, intensity=intensity) == "rainy", (code, intensity)
+
+
+def test_light_rain_never_pours():
+    assert outlook_to_condition(9, intensity="REALLY_STRONG") == "rainy"
+
+
+def test_intensity_does_not_touch_other_conditions():
+    for code in (1, 4, 6, 7, 8, 11, 12, 13, 16, 17, 19, 20):
+        expected = EXPECTED_DAY[code]
+        assert outlook_to_condition(code, intensity="REALLY_STRONG") == expected, code
+
+
+def test_pouring_is_the_same_by_night():
+    assert outlook_to_condition(10, is_night=True, intensity="STRONG") == "pouring"
+
+
+def test_pouring_on_real_hourly_slots():
+    with open(os.path.join(FIXTURES, "api_hourly_5658.json"), encoding="utf-8") as f:
+        rows = json.load(f)[0]["forecasts"]
+
+    def condition(i):
+        row = rows[i]
+        return outlook_to_condition(row["outlook"], intensity=row["precipitationDetails"]["intensity"])
+
+    assert condition(6) == "pouring"  # 06:00, outlook 10, STRONG, 3.83 mm
+    assert condition(5) == "rainy"  # 05:00, outlook 10, SUBSTANTIAL, 1.69 mm
+    assert condition(13) == "lightning-rainy"  # 13:00, outlook 13, COPIOUS
 
 
 def test_every_outlook_in_the_fixtures_is_mapped():

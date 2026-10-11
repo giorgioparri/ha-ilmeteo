@@ -186,6 +186,7 @@ class DailyForecast:
     temperature_min: float | None
     precipitation: float | None
     precipitation_probability: float | None
+    precipitation_intensity: str | None
     wind_speed: float | None
     wind_gust: float | None
     wind_bearing: float | None
@@ -218,6 +219,7 @@ class HourlyForecast:
     wind_gust: float | None
     wind_bearing: float | None
     precipitation: float | None
+    precipitation_intensity: str | None
     snowfall: float | None
     freezing_level: float | None
     pv_production: float | None
@@ -249,6 +251,13 @@ def _num(value: Any) -> float | None:
 def _int(value: Any) -> int | None:
     number = _num(value)
     return int(number) if number is not None else None
+
+
+def _intensity(row: dict[str, Any]) -> str | None:
+    """precipitationDetails.intensity (ABSENT ... REALLY_STRONG), or None."""
+    details = row.get("precipitationDetails")
+    value = details.get("intensity") if isinstance(details, dict) else None
+    return value if isinstance(value, str) and value else None
 
 
 def parse_place(payload: Any) -> Place | None:
@@ -321,6 +330,7 @@ def parse_daily(payload: Any) -> list[DailyForecast]:
                 temperature_min=_num(row.get("minTemperature")),
                 precipitation=_num(row.get("precipitationInMm")),
                 precipitation_probability=_num(row.get("precipitationProbability")),
+                precipitation_intensity=_intensity(row),
                 wind_speed=_num(row.get("windSpeed")),
                 wind_gust=_num(row.get("windMaxSpeed")),
                 wind_bearing=_num(row.get("windDirection")),
@@ -366,6 +376,7 @@ def parse_hourly(payload: Any) -> list[HourlyForecast]:
                 wind_gust=_num(row.get("windMaxSpeed")),
                 wind_bearing=_num(row.get("windDirection")),
                 precipitation=None if is_snow else amount,
+                precipitation_intensity=_intensity(row),
                 snowfall=amount if is_snow else None,
                 freezing_level=_num(row.get("freezingLevel")),
                 pv_production=_num(uv_details.get("kWhProduction")),

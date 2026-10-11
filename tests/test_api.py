@@ -327,6 +327,25 @@ def test_parse_places_skips_garbage_and_handles_empty():
     assert [p.id for p in parse_places(mixed)] == [5658]
 
 
+# --- Precipitation intensity ---------------------------------------------
+
+def test_hourly_carries_precipitation_intensity():
+    slots = parse_hourly(_fixture("api_hourly_5658.json"))
+    assert slots[6].precipitation_intensity == "STRONG"  # 06:00, 3.83 mm
+    assert slots[21].precipitation_intensity == "SUBSTANTIAL"
+    assert slots[12].precipitation_intensity == "ABSENT"
+
+
+def test_daily_carries_precipitation_intensity():
+    assert parse_daily(_fixture("api_daily_5658.json"))[0].precipitation_intensity == "SCANT"
+
+
+def test_missing_intensity_is_none():
+    payload = copy.deepcopy(_fixture("api_hourly_5658.json"))
+    del payload[0]["forecasts"][6]["precipitationDetails"]
+    assert parse_hourly(payload)[6].precipitation_intensity is None
+
+
 # --- Snow ----------------------------------------------------------------
 
 def _hourly_with_snow(row_index=21, amount=2.5):

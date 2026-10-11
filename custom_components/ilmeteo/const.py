@@ -170,15 +170,30 @@ OUTLOOK_CONDITION_MAP: dict[int, str] = {
 }
 
 
-def outlook_to_condition(code: int | None, is_night: bool = False) -> str | None:
+# Rain codes that turn into 'pouring' when precipitationDetails.intensity is
+# at least STRONG. The glossary orders intensity as ABSENT, SCANT, MODERATE,
+# SUBSTANTIAL, COPIOUS, STRONG, REALLY_STRONG; observed rates put STRONG near
+# 4 mm/h. Code 9 ("pioggia debole") is left out: light rain never pours.
+POURING_OUTLOOKS: frozenset[int] = frozenset({5, 10})
+POURING_INTENSITIES: frozenset[str] = frozenset({"STRONG", "REALLY_STRONG"})
+
+
+def outlook_to_condition(
+    code: int | None,
+    is_night: bool = False,
+    intensity: str | None = None,
+) -> str | None:
     """Resolve an HA condition from a gateway outlook code.
 
     At night only 'sunny' changes, to 'clear-night': HA has no night variant
-    for the other conditions (same rule as 1.1.4, #7).
+    for the other conditions (same rule as 1.1.4, #7). Rain with a strong
+    precipitation intensity becomes 'pouring', by day and by night.
     """
     if code is None:
         return None
     condition = OUTLOOK_CONDITION_MAP.get(code)
+    if code in POURING_OUTLOOKS and intensity in POURING_INTENSITIES:
+        return "pouring"
     if is_night and condition == "sunny":
         return "clear-night"
     return condition

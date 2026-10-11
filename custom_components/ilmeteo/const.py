@@ -53,7 +53,7 @@ ALL_OPTIONAL_SENSORS = [
 
 # ---------------------------------------------------------------------------
 # Condition mapping: sprite code (ss-smallN, >100 = night) + Italian label
-# -> HA condition string
+# -> HA condition string. Used by the 1.x box scraper and removed with it.
 # ---------------------------------------------------------------------------
 
 # Italian label (lowercased) -> HA condition
@@ -125,6 +125,60 @@ def map_condition(text: str | None, code: str | None) -> str | None:
     if condition is None and base_code is not None:
         condition = CONDITION_CODE_MAP.get(base_code)
 
+    if is_night and condition == "sunny":
+        return "clear-night"
+    return condition
+
+
+# ---------------------------------------------------------------------------
+# Condition mapping for the API Gateway: outlook code -> HA condition string.
+#
+# The 24 codes are those of the gateway glossary (Glossary_API_Gateway_V02).
+# The code is the key, not outlookDescription: the Italian wording may change,
+# the documented code does not. Codes whose label the 1.x scraper already
+# handled keep the condition they had there.
+#
+# The glossary uses the same code by day and by night; day/night comes from
+# timeDetails.lightTime on hourly slots. Daily forecasts are always day.
+# ---------------------------------------------------------------------------
+
+OUTLOOK_CONDITION_MAP: dict[int, str] = {
+    1: "sunny",  # sereno
+    2: "sunny",  # sole e caldo
+    3: "partlycloudy",  # poco nuvoloso
+    4: "partlycloudy",  # nubi sparse
+    5: "rainy",  # pioggia e schiarite
+    6: "snowy-rainy",  # pioggia mista a neve e schiarite
+    7: "snowy",  # neve e schiarite
+    8: "cloudy",  # coperto
+    9: "rainy",  # pioggia debole
+    10: "rainy",  # pioggia
+    11: "snowy",  # neve
+    12: "snowy-rainy",  # pioggia mista a neve
+    13: "lightning-rainy",  # temporale
+    14: "fog",  # nebbia
+    15: "fog",  # nebbia al mattino
+    16: "lightning-rainy",  # temporale e schiarite
+    17: "hail",  # grandine
+    18: "snowy",  # neve debole
+    19: "hail",  # temporale con grandine e schiarite
+    20: "hail",  # temporale con grandine
+    21: "partlycloudy",  # poco nuvoloso e caldo
+    22: "sunny",  # sole e caldo
+    23: "partlycloudy",  # nubi sparse e caldo
+    24: "sunny",  # caldo estremo
+}
+
+
+def outlook_to_condition(code: int | None, is_night: bool = False) -> str | None:
+    """Resolve an HA condition from a gateway outlook code.
+
+    At night only 'sunny' changes, to 'clear-night': HA has no night variant
+    for the other conditions (same rule as 1.1.4, #7).
+    """
+    if code is None:
+        return None
+    condition = OUTLOOK_CONDITION_MAP.get(code)
     if is_night and condition == "sunny":
         return "clear-night"
     return condition

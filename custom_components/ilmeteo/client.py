@@ -26,12 +26,16 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from typing import Any
+from urllib.parse import quote
 
 import aiohttp
 
 BASE_URL = "https://apigateway.ilmeteo.it/v1"
 MODEL_COMPOSITE = "COMPOSITE"
 REQUEST_TIMEOUT = 30  # seconds
+NEARBY_RADIUS_KM = 15  # the gateway default is a few km; too narrow for a choice
+SEARCH_COUNTRY = "IT"
+PRECIPITATION_TYPE_SNOW = 12
 
 _BEARER_RE = re.compile(r"^\s*bearer\s+", re.IGNORECASE)
 
@@ -126,10 +130,33 @@ def normalize_key(raw: str) -> str:
 # --- Data model ------------------------------------------------------------
 
 @dataclass(frozen=True, slots=True)
+class Region:
+    """An Italian region, e.g. id 'TOS', name 'Toscana'."""
+
+    id: str
+    name: str
+
+
+@dataclass(frozen=True, slots=True)
+class Province:
+    """An Italian province, e.g. id 'SI', name 'Siena', region 'TOS'."""
+
+    id: str
+    name: str
+    region: str | None
+
+
+@dataclass(frozen=True, slots=True)
 class Place:
-    """A location known to the gateway."""
+    """A location known to the gateway.
+
+    real_id is the place whose forecast the gateway actually serves: for many
+    hamlets and city districts it is the comune (Roma Testaccio -> Roma).
+    istat_code is the comune's code, shared by its hamlets: not a key.
+    """
 
     id: int
+    real_id: int
     name: str
     province: str | None
     region: str | None
@@ -137,6 +164,11 @@ class Place:
     latitude: float | None
     longitude: float | None
     timezone: str | None
+
+    @property
+    def is_alias(self) -> bool:
+        """True when the forecast is borrowed from another place."""
+        return self.real_id != self.id
 
 
 @dataclass(frozen=True, slots=True)
@@ -166,8 +198,11 @@ class DailyForecast:
 class HourlyForecast:
     """One hourly slot. time is timezone-aware, start of the hour.
 
-    Speeds in m/s, visibility in m, precipitation in mm, pressure in hPa,
-    pv_production is the gateway's uvDetails.kWhProduction.
+    Speeds in m/s, visibility in m, pressure in hPa. The gateway reports
+    precipitation in mm for rain and in cm for snow (glossary): a snow slot
+    therefore has precipitation None and the amount in snowfall, in cm.
+    pv_production is the gateway's uvDetails.kWhProduction, whose unit and
+    reference system are still to be confirmed by iLMeteo.
     """
 
     time: datetime
@@ -183,6 +218,7 @@ class HourlyForecast:
     wind_gust: float | None
     wind_bearing: float | None
     precipitation: float | None
+    snowfall: float | None
     freezing_level: float | None
     pv_production: float | None
 
@@ -217,10 +253,15 @@ def _int(value: Any) -> int | None:
 
 def parse_place(payload: Any) -> Place | None:
     """Parse /geography/places/{id}; None when the gateway returns {}."""
-    if not isinstance(payload, dict) or payload.get("id") is None:
+    if not isinstance(payload, dict):
         return None
+    place_id = _int(payload.get("id"))
+    if place_id is None:
+        return None
+    real_id = _int(payload.get("realId"))
     return Place(
-        id=int(payload["id"]),
+        id=place_id,
+        real_id=real_id if real_id is not None else place_id,
         name=str(payload.get("name") or ""),
         province=payload.get("province"),
         region=payload.get("region"),
@@ -229,6 +270,39 @@ def parse_place(payload: Any) -> Place | None:
         longitude=_num(payload.get("longitude")),
         timezone=payload.get("timezone"),
     )
+
+
+def parse_places(payload: Any) -> list[Place]:
+    """Parse a list of places (cascade, search, coordinates)."""
+    if not isinstance(payload, list):
+        return []
+    return [p for p in map(parse_place, payload) if p is not None]
+
+
+def parse_regions(payload: Any) -> list[Region]:
+    """Parse /geography/regions."""
+    if not isinstance(payload, list):
+        return []
+    return [
+        Region(id=str(r["id"]), name=str(r.get("name") or r["id"]))
+        for r in payload
+        if isinstance(r, dict) and r.get("id")
+    ]
+
+
+def parse_provinces(payload: Any) -> list[Province]:
+    """Parse /geography/regions/{region}/provinces."""
+    if not isinstance(payload, list):
+        return []
+    return [
+        Province(
+            id=str(p["id"]),
+            name=str(p.get("name") or p["id"]),
+            region=p.get("region"),
+        )
+        for p in payload
+        if isinstance(p, dict) and p.get("id")
+    ]
 
 
 def parse_daily(payload: Any) -> list[DailyForecast]:
@@ -271,6 +345,12 @@ def parse_hourly(payload: Any) -> list[HourlyForecast]:
         temp_details = row.get("temperatureDetails") or {}
         time_details = row.get("timeDetails") or {}
         uv_details = row.get("uvDetails") or {}
+        precip_details = row.get("precipitationDetails") or {}
+        amount = _num(row.get("precipitation"))
+        is_snow = (
+            row.get("precipitationType") == PRECIPITATION_TYPE_SNOW
+            or precip_details.get("isSnow") is True
+        )
         slots.append(
             HourlyForecast(
                 time=time,
@@ -285,7 +365,8 @@ def parse_hourly(payload: Any) -> list[HourlyForecast]:
                 wind_speed=_num(row.get("windSpeed")),
                 wind_gust=_num(row.get("windMaxSpeed")),
                 wind_bearing=_num(row.get("windDirection")),
-                precipitation=_num(row.get("precipitation")),
+                precipitation=None if is_snow else amount,
+                snowfall=amount if is_snow else None,
                 freezing_level=_num(row.get("freezingLevel")),
                 pv_production=_num(uv_details.get("kWhProduction")),
             )
@@ -328,14 +409,15 @@ class IlMeteoClient:
         self._base_url = base_url.rstrip("/")
         self._on_request = on_request
 
-    async def _get(self, path: str) -> Any:
+    async def _get(self, path: str, params: dict[str, Any] | None = None) -> Any:
         url = f"{self._base_url}/{path.lstrip('/')}"
+        query = {"format": "json", **(params or {})}
         if self._on_request is not None:
             self._on_request()
         try:
             async with self._session.get(
                 url,
-                params={"format": "json"},
+                params=query,
                 headers={"Authorization": self._api_key},
                 timeout=aiohttp.ClientTimeout(total=REQUEST_TIMEOUT),
             ) as response:
@@ -375,3 +457,42 @@ class IlMeteoClient:
             f"/hourly/{model}/places/{int(place_id)}"
         )
         return parse_hourly(await self._get(path))
+
+    async def async_get_regions(self) -> list[Region]:
+        """List the Italian regions."""
+        return parse_regions(await self._get("geography/regions"))
+
+    async def async_get_provinces(self, region: str) -> list[Province]:
+        """List the provinces of a region (id as returned by the gateway)."""
+        path = f"geography/regions/{quote(region, safe='')}/provinces"
+        return parse_provinces(await self._get(path))
+
+    async def async_get_places(self, region: str, province: str) -> list[Place]:
+        """List the places of a province, hamlets and districts included."""
+        path = (
+            f"geography/regions/{quote(region, safe='')}"
+            f"/provinces/{quote(province, safe='')}/places"
+        )
+        return parse_places(await self._get(path))
+
+    async def async_search(self, query: str, limit: int = 10) -> list[Place]:
+        """Search places by name, in Italy."""
+        path = f"geography/places/search/{quote(query.strip(), safe='')}"
+        params = {"country": SEARCH_COUNTRY, "limit": limit}
+        return parse_places(await self._get(path, params))
+
+    async def async_nearby(
+        self,
+        latitude: float,
+        longitude: float,
+        distance_km: int = NEARBY_RADIUS_KM,
+        limit: int = 10,
+    ) -> list[Place]:
+        """Places around a point, nearest first."""
+        params = {
+            "latitude": latitude,
+            "longitude": longitude,
+            "distanceInKm": distance_km,
+            "limit": limit,
+        }
+        return parse_places(await self._get("geography/places/coordinates", params))

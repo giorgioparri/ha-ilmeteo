@@ -8,6 +8,7 @@ request ever leaves the machine and no quota is spent.
 """
 import asyncio
 import contextlib
+import copy
 import json
 import os
 import sys
@@ -33,6 +34,9 @@ from client import (
     parse_daily,
     parse_hourly,
     parse_place,
+    parse_places,
+    parse_provinces,
+    parse_regions,
 )
 
 FIXTURES = os.path.join(os.path.dirname(__file__), "fixtures")
@@ -257,6 +261,107 @@ def test_current_slot_outside_range_is_none():
     assert current_slot([], datetime(2026, 10, 8, 21, 42, tzinfo=ROME)) is None
 
 
+# --- Geography -----------------------------------------------------------
+
+def test_parse_regions():
+    regions = parse_regions(_fixture("api_regions.json"))
+    assert len(regions) == 20
+    assert regions[0].id == "ABR"
+    assert regions[0].name == "Abruzzo"
+    assert {r.id for r in regions} >= {"LAZ", "LOM", "TOS"}
+
+
+def test_parse_provinces():
+    provinces = parse_provinces(_fixture("api_provinces_tos.json"))
+    assert len(provinces) == 10
+    siena = next(p for p in provinces if p.id == "SI")
+    assert siena.name == "Siena"
+    assert siena.region == "TOS"
+
+
+def test_parse_places_of_a_province_includes_hamlets():
+    places = parse_places(_fixture("api_places_tos_si.json"))
+    assert len(places) == 53
+    names = {p.name for p in places}
+    assert {"Rapolano Terme", "Siena", "Bagno Vignoni", "Crete Senesi"} <= names
+
+
+def test_real_id_marks_places_that_borrow_another_forecast():
+    # realId is the place whose forecast is actually served: Roma Testaccio
+    # returns exactly Roma's daily forecast (checked field by field).
+    testaccio = parse_places(_fixture("api_search_testaccio.json"))[0]
+    assert testaccio.id == 8948
+    assert testaccio.real_id == 5913
+    assert testaccio.is_alias is True
+    monte_sacro_alto = next(
+        p for p in parse_places(_fixture("api_search_monte_sacro.json"))
+        if p.name == "Roma Monte Sacro Alto"
+    )
+    assert monte_sacro_alto.real_id == 8872
+    assert monte_sacro_alto.is_alias is False
+
+
+def test_real_id_defaults_to_id_when_missing():
+    data = dict(_fixture("api_place_5658.json"))
+    del data["realId"]
+    place = parse_place(data)
+    assert place.real_id == 5658
+    assert place.is_alias is False
+
+
+def test_istat_code_is_not_unique():
+    # Hamlets carry the code of their comune: never use it as a key.
+    places = parse_places(_fixture("api_places_tos_si.json"))
+    by_istat = {}
+    for p in places:
+        if p.istat_code:
+            by_istat.setdefault(p.istat_code, []).append(p.name)
+    assert sorted(by_istat["052037"]) == ["Montalcino", "Torrenieri"]
+
+
+def test_parse_places_skips_garbage_and_handles_empty():
+    assert parse_places([]) == []
+    assert parse_places({}) == []
+    assert parse_places(None) == []
+    mixed = [_fixture("api_place_5658.json"), {}, "x", {"name": "no id"}]
+    assert [p.id for p in parse_places(mixed)] == [5658]
+
+
+# --- Snow ----------------------------------------------------------------
+
+def _hourly_with_snow(row_index=21, amount=2.5):
+    payload = copy.deepcopy(_fixture("api_hourly_5658.json"))
+    row = payload[0]["forecasts"][row_index]
+    row["precipitationType"] = 12
+    row["precipitationDetails"]["isSnow"] = True
+    row["precipitation"] = amount
+    return payload
+
+
+def test_snow_is_not_reported_as_millimetres_of_rain():
+    # Glossary: precipitation is in mm for rain and in cm for snow. A cm value
+    # must never reach a field HA treats as mm.
+    slot = parse_hourly(_hourly_with_snow())[21]
+    assert slot.precipitation is None
+    assert slot.snowfall == 2.5
+
+
+def test_snow_detected_from_either_flag():
+    payload = copy.deepcopy(_fixture("api_hourly_5658.json"))
+    row = payload[0]["forecasts"][21]
+    row["precipitationType"] = 12  # type only
+    assert parse_hourly(payload)[21].snowfall == 1.66
+    payload = copy.deepcopy(_fixture("api_hourly_5658.json"))
+    payload[0]["forecasts"][21]["precipitationDetails"]["isSnow"] = True  # flag only
+    assert parse_hourly(payload)[21].snowfall == 1.66
+
+
+def test_rain_slots_have_no_snowfall():
+    slot = parse_hourly(_fixture("api_hourly_5658.json"))[21]
+    assert slot.precipitation == 1.66
+    assert slot.snowfall is None
+
+
 # --- HTTP client against a fake gateway ----------------------------------
 
 class FakeGateway:
@@ -396,6 +501,68 @@ def test_client_unreachable_host_is_connection_error():
             return False
 
     assert asyncio.run(scenario()) is True
+
+
+def test_client_geography_paths():
+    gw = FakeGateway()
+    gw.add("/v1/geography/regions", 200, _fixture("api_regions.json"))
+    gw.add("/v1/geography/regions/TOS/provinces", 200, _fixture("api_provinces_tos.json"))
+    gw.add("/v1/geography/regions/TOS/provinces/SI/places", 200, _fixture("api_places_tos_si.json"))
+
+    async def scenario(client):
+        return (
+            await client.async_get_regions(),
+            await client.async_get_provinces("TOS"),
+            await client.async_get_places("TOS", "SI"),
+        )
+
+    regions, provinces, places = asyncio.run(_with_gateway(gw, "k", scenario))
+    assert (len(regions), len(provinces), len(places)) == (20, 10, 53)
+
+
+def test_client_search_encodes_the_query_and_limits_to_italy():
+    gw = FakeGateway()
+    gw.add("/v1/geography/places/search/monte sacro", 200, _fixture("api_search_monte_sacro.json"))
+
+    async def scenario(client):
+        return await client.async_search("monte sacro", limit=10)
+
+    places = asyncio.run(_with_gateway(gw, "k", scenario))
+    assert [p.id for p in places] == [8880, 8872]
+    request = gw.requests[0]
+    assert "/search/monte%20sacro" in request.raw_path
+    assert request.query["country"] == "IT"
+    assert request.query["limit"] == "10"
+
+
+def test_client_search_slash_cannot_escape_the_path():
+    gw = FakeGateway()
+
+    async def scenario(client):
+        with contextlib.suppress(IlMeteoRequestError):
+            await client.async_search("a/../../regions")
+
+    asyncio.run(_with_gateway(gw, "k", scenario))
+    assert "/search/a%2F..%2F..%2Fregions" in gw.requests[0].raw_path
+
+
+def test_client_nearby_passes_radius_explicitly():
+    # The gateway's default radius is a few km: around Rapolano it returned
+    # only Rapolano itself. 15 km brings in the neighbouring comuni.
+    gw = FakeGateway()
+    gw.add("/v1/geography/places/coordinates", 200, _fixture("api_nearby_5658_15km.json"))
+
+    async def scenario(client):
+        return await client.async_nearby(43.2865, 11.6042)
+
+    places = asyncio.run(_with_gateway(gw, "k", scenario))
+    assert places[0].name == "Rapolano Terme"
+    assert len(places) == 10
+    query = gw.requests[0].query
+    assert query["latitude"] == "43.2865"
+    assert query["longitude"] == "11.6042"
+    assert query["distanceInKm"] == "15"
+    assert query["limit"] == "10"
 
 
 if __name__ == "__main__":

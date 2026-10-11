@@ -15,7 +15,6 @@ sys.path.insert(
 )
 
 from const import (
-    CONDITION_TEXT_MAP,
     DEFAULT_INFO_URL,
     OUTLOOK_CONDITION_MAP,
     POURING_INTENSITIES,
@@ -114,12 +113,30 @@ def test_night_turns_only_sunny_into_clear_night():
             assert night == day, code
 
 
+# Conditions the 1.x scraper gave to these labels (its CONDITION_TEXT_MAP,
+# removed in 2.0 together with the scraper). Frozen here so 2.0 keeps them.
+SCRAPER_1X_CONDITIONS = {
+    "sereno": "sunny",
+    "poco nuvoloso": "partlycloudy",
+    "nubi sparse": "partlycloudy",
+    "coperto": "cloudy",
+    "pioggia debole": "rainy",
+    "pioggia": "rainy",
+    "neve": "snowy",
+    "pioggia mista a neve": "snowy-rainy",
+    "temporale": "lightning-rainy",
+    "nebbia": "fog",
+    "grandine": "hail",
+    "neve debole": "snowy",
+}
+
+
 def test_codes_known_to_the_scraper_keep_their_condition():
     # Labels the 1.x scraper already mapped must not change behaviour.
-    shared = {c: label for c, label in GLOSSARY.items() if label in CONDITION_TEXT_MAP}
+    shared = {c: label for c, label in GLOSSARY.items() if label in SCRAPER_1X_CONDITIONS}
     assert len(shared) == 12
     for code, label in shared.items():
-        assert outlook_to_condition(code) == CONDITION_TEXT_MAP[label], (code, label)
+        assert outlook_to_condition(code) == SCRAPER_1X_CONDITIONS[label], (code, label)
 
 
 def test_unknown_or_missing_code_is_none():

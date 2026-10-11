@@ -1,9 +1,9 @@
 """Weather alert model and provider abstraction.
 
-iLMeteo.it does not expose structured alert data in its public box widgets
-(only real1/day1/tri1 are documented — see business/portali). Until/unless
-iLMeteo provides something better, alerts are derived by HeuristicAlertProvider
-from the same data already scraped for the weather/sensor entities.
+The iLMeteo API Gateway has no alert endpoint. Until iLMeteo provides one,
+alerts are derived by HeuristicAlertProvider from the forecast already in the
+coordinator (update.Snapshot), alongside the official Protezione Civile
+bulletins read from the DPC integration's sensors.
 
 AlertProvider is deliberately generic so a future provider backed by
 Protezione Civile open data (bollettino di criticità per zona di allerta) or
@@ -13,7 +13,15 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any
+from datetime import date, timedelta
+from typing import TYPE_CHECKING, Any
+
+from .const import POURING_INTENSITIES
+from .quota import QUOTA_TIMEZONE
+
+if TYPE_CHECKING:
+    from .client import DailyForecast, HourlyForecast
+    from .update import Snapshot
 
 # Heuristic thresholds. These are our own invention, not official
 # Protezione Civile / iLMeteo thresholds — tune here if needed.
@@ -32,6 +40,13 @@ HEAT_HYSTERESIS_C = 2
 COLD_HYSTERESIS_C = 2
 WIND_HYSTERESIS_KMH = 5
 RAIN_PROB_HYSTERESIS = 5
+
+# Gateway outlook codes (glossary) standing for storms and for hail. 19 and
+# 20 ("temporale con grandine") are both, as the 1.x label match was.
+STORM_OUTLOOKS = frozenset({13, 16, 19, 20})
+HAIL_OUTLOOKS = frozenset({17, 19, 20})
+
+MS_TO_KMH = 3.6
 
 
 @dataclass
@@ -60,7 +75,7 @@ class AlertProvider(ABC):
     @abstractmethod
     async def async_get_alerts(
         self,
-        coordinator_data: dict[str, Any],
+        coordinator_data: Snapshot | None,
         citta: str,
         place_name: str,
         active_alert_ids: frozenset[str] | None = None,
@@ -74,12 +89,12 @@ class AlertProvider(ABC):
 
 
 class HeuristicAlertProvider(AlertProvider):
-    """Derives alerts from real1/day1/tri1 data already in the coordinator.
+    """Derives alerts from the forecast snapshot already in the coordinator.
 
-    Evaluates "oggi" (index 0) and "domani" (index 1) independently: each
-    produces its own alert_id (e.g. heuristic_heat_today vs
-    heuristic_heat_tomorrow), so they dedup and notify separately. real1
-    ("current conditions") only applies to today.
+    Evaluates today and tomorrow independently: each produces its own
+    alert_id (e.g. heuristic_heat_today vs heuristic_heat_tomorrow), so they
+    dedup and notify separately. Days are matched by Italian date, never by
+    list position. The current slot only applies to today.
 
     Hysteresis: once an alert is active, it is kept alive until the value
     drops below (threshold - delta), preventing rapid on/off oscillation
@@ -92,53 +107,56 @@ class HeuristicAlertProvider(AlertProvider):
 
     async def async_get_alerts(
         self,
-        coordinator_data: dict[str, Any],
+        coordinator_data: Snapshot | None,
         citta: str,
         place_name: str,
         active_alert_ids: frozenset[str] | None = None,
     ) -> list[WeatherAlert]:
-        daily = coordinator_data.get("daily") or []
-        days = coordinator_data.get("days") or []
-        current = coordinator_data.get("current") or {}
+        snapshot = coordinator_data
+        if snapshot is None:
+            return []
+        today = self._today(snapshot)
+        if today is None:
+            return []
         active = active_alert_ids or frozenset()
 
         alerts: list[WeatherAlert] = []
-        alerts += self._for_day(daily, days, current, index=0, suffix="today", label="oggi", active=active)
-        alerts += self._for_day(daily, days, current, index=1, suffix="tomorrow", label="domani", active=active)
-        return alerts
-
-    def _for_day(
-        self,
-        daily: list[dict[str, Any]],
-        days: list[dict[str, Any]],
-        current: dict[str, Any],
-        index: int,
-        suffix: str,
-        label: str,
-        active: frozenset[str],
-    ) -> list[WeatherAlert]:
-        summary = daily[index] if len(daily) > index else {}
-        hours = (
-            days[index]["hours"]
-            if len(days) > index and days[index].get("hours")
-            else []
-        )
-        current_for_day = current if index == 0 else {}
-
-        alerts: list[WeatherAlert] = []
-        alerts += self._heat_cold(summary, suffix, label, active)
-        alerts += self._wind(summary, current_for_day, suffix, label, active)
-        alerts += self._storm_hail(hours, current_for_day, suffix, label)
-        alerts += self._rain(summary, suffix, label, active)
+        for offset, suffix, label in ((0, "today", "oggi"), (1, "tomorrow", "domani")):
+            day = today + timedelta(days=offset)
+            summary = next((d for d in snapshot.daily if d.date == day), None)
+            slots = [s for s in snapshot.hourly if self._date(s) == day]
+            current = snapshot.current if offset == 0 else None
+            alerts += self._heat_cold(summary, suffix, label, active)
+            alerts += self._wind(summary, current, suffix, label, active)
+            alerts += self._storm_hail(slots, current, suffix, label)
+            alerts += self._rain(summary, suffix, label, active)
         return alerts
 
     @staticmethod
+    def _date(slot: HourlyForecast) -> date:
+        return slot.time.astimezone(QUOTA_TIMEZONE).date()
+
+    @classmethod
+    def _today(cls, snapshot: Snapshot) -> date | None:
+        """Italian date the snapshot refers to.
+
+        The current slot is the most direct witness; otherwise build_snapshot
+        guarantees the first hourly slot is the current hour and the first
+        daily row is today or later, so the earliest of the two is used.
+        """
+        if snapshot.current is not None:
+            return cls._date(snapshot.current)
+        candidates = [d.date for d in snapshot.daily[:1]]
+        candidates += [cls._date(s) for s in snapshot.hourly[:1]]
+        return min(candidates) if candidates else None
+
+    @staticmethod
     def _heat_cold(
-        summary: dict[str, Any], suffix: str, label: str, active: frozenset[str]
+        summary: DailyForecast | None, suffix: str, label: str, active: frozenset[str]
     ) -> list[WeatherAlert]:
         alerts: list[WeatherAlert] = []
-        tmax = summary.get("temp_max")
-        tmin = summary.get("temp_min")
+        tmax = summary.temperature_max if summary else None
+        tmin = summary.temperature_min if summary else None
         h = HEAT_HYSTERESIS_C
         c = COLD_HYSTERESIS_C
 
@@ -175,14 +193,15 @@ class HeuristicAlertProvider(AlertProvider):
 
     @staticmethod
     def _wind(
-        summary: dict[str, Any], current: dict[str, Any],
+        summary: DailyForecast | None, current: HourlyForecast | None,
         suffix: str, label: str, active: frozenset[str]
     ) -> list[WeatherAlert]:
-        speed = summary.get("wind_speed")
-        if speed is None:
-            speed = current.get("wind_speed")
-        if speed is None:
+        speed_ms = summary.wind_speed if summary else None
+        if speed_ms is None and current is not None:
+            speed_ms = current.wind_speed
+        if speed_ms is None:
             return []
+        speed = speed_ms * MS_TO_KMH  # thresholds and messages stay in km/h
 
         wind_id = f"heuristic_wind_{suffix}"
         wind_active = wind_id in active
@@ -202,24 +221,24 @@ class HeuristicAlertProvider(AlertProvider):
 
     @staticmethod
     def _storm_hail(
-        hours: list[dict[str, Any]], current: dict[str, Any], suffix: str, label: str
+        slots: list[HourlyForecast], current: HourlyForecast | None,
+        suffix: str, label: str
     ) -> list[WeatherAlert]:
-        texts = [h.get("condition_text") or "" for h in hours]
-        texts.append(current.get("condition_text") or "")
-        joined = " ".join(texts).lower()
+        considered = [*slots, current] if current is not None else slots
+        storms = [s for s in considered if s.outlook in STORM_OUTLOOKS]
 
         alerts: list[WeatherAlert] = []
-        if "grandine" in joined:
+        if any(s.outlook in HAIL_OUTLOOKS for s in considered):
             alerts.append(WeatherAlert(
                 f"heuristic_hail_{suffix}", "orange", "hail", f"Rischio grandine ({label})",
                 f"Condizioni compatibili con grandinate {label}.", "heuristic", day=suffix,
             ))
-        if "temporale forte" in joined or "temporali forti" in joined:
+        if any(s.precipitation_intensity in POURING_INTENSITIES for s in storms):
             alerts.append(WeatherAlert(
                 f"heuristic_storm_{suffix}", "orange", "storm", f"Temporali forti ({label})",
                 f"Previsti temporali forti {label}.", "heuristic", day=suffix,
             ))
-        elif "temporal" in joined:
+        elif storms:
             alerts.append(WeatherAlert(
                 f"heuristic_storm_{suffix}", "yellow", "storm", f"Temporali ({label})",
                 f"Previsti temporali {label}.", "heuristic", day=suffix,
@@ -228,9 +247,9 @@ class HeuristicAlertProvider(AlertProvider):
 
     @staticmethod
     def _rain(
-        summary: dict[str, Any], suffix: str, label: str, active: frozenset[str]
+        summary: DailyForecast | None, suffix: str, label: str, active: frozenset[str]
     ) -> list[WeatherAlert]:
-        prob = summary.get("precipitation_probability")
+        prob = summary.precipitation_probability if summary else None
         if prob is None:
             return []
         rain_id = f"heuristic_rain_{suffix}"
@@ -274,7 +293,7 @@ class DpcSensorAlertProvider(AlertProvider):
         self.entity_id = entity_id
 
     async def async_get_alerts(
-        self, coordinator_data: dict[str, Any], citta: str, place_name: str,
+        self, coordinator_data: Snapshot | None, citta: str, place_name: str,
         active_alert_ids: frozenset[str] | None = None,
     ) -> list[WeatherAlert]:
         state = self.hass.states.get(self.entity_id)
@@ -358,7 +377,7 @@ class DpcVigilanceProvider(AlertProvider):
         self.entity_id = entity_id
 
     async def async_get_alerts(
-        self, coordinator_data: dict[str, Any], citta: str, place_name: str,
+        self, coordinator_data: Snapshot | None, citta: str, place_name: str,
         active_alert_ids: frozenset[str] | None = None,
     ) -> list[WeatherAlert]:
         state = self.hass.states.get(self.entity_id)

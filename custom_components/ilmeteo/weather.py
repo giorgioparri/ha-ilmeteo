@@ -1,9 +1,13 @@
-"""iLMeteo.it Weather entity (real1 + day1 + tri1 backend)."""
+"""iLMeteo.it Weather entity (API Gateway backend).
+
+Current conditions come from the hourly slot containing "now" (the gateway's
+realtime endpoint answers {} for the time being); day/night comes from the
+slot's lightTime, so the 1.x sun-position correction is no longer needed.
+Daily forecasts always use the day variant of the condition.
+"""
 from __future__ import annotations
 
-import logging
-from datetime import datetime
-from typing import Any
+from datetime import datetime, time
 
 from homeassistant.components.weather import (
     Forecast,
@@ -12,26 +16,21 @@ from homeassistant.components.weather import (
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
+    UnitOfLength,
+    UnitOfPrecipitationDepth,
+    UnitOfPressure,
     UnitOfSpeed,
     UnitOfTemperature,
 )
-from homeassistant.core import HomeAssistant
-from homeassistant.helpers import sun as sun_helper
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
-from homeassistant.util import dt as dt_util
 
-from .api import wind_bearing
-from .const import (
-    CONF_PLACE_NAME,
-    CONF_SITE_NUMBER,
-    DEFAULT_INFO_URL,
-    DOMAIN,
-    map_condition,
-)
+from .client import HourlyForecast
+from .const import CONF_PLACE_NAME, CONF_SITE_NUMBER, DOMAIN, outlook_to_condition
 from .coordinator import IlMeteoCoordinator
-
-_LOGGER = logging.getLogger(__name__)
+from .quota import QUOTA_TIMEZONE
+from .update import Snapshot, dew_point
 
 
 async def async_setup_entry(
@@ -44,36 +43,26 @@ async def async_setup_entry(
     async_add_entities([IlMeteoWeather(coordinator, entry)])
 
 
-def _apply_night(condition: str | None, is_night: bool) -> str | None:
-    """Convert 'sunny' and 'partlycloudy' to their night variants when dark.
-
-    iLMeteo's real1 box does not use night codes (>=100) — only tri1 does,
-    and even then only sporadically. We apply the correction ourselves using
-    HA's sun helper for current conditions, and the slot timestamp for hourly
-    forecasts.
-    """
-    if not is_night or condition is None:
-        return condition
-    if condition == "sunny":
-        return "clear-night"
-    return condition
+def _km(metres: float | None) -> float | None:
+    return round(metres / 1000, 1) if metres is not None else None
 
 
 class IlMeteoWeather(CoordinatorEntity[IlMeteoCoordinator], WeatherEntity):
-    """Weather entity backed by iLMeteo's real1 + day1 + tri1 boxes."""
+    """Weather entity backed by the iLMeteo API Gateway."""
 
     _attr_has_entity_name = True
     _attr_name = None
     _attr_native_temperature_unit = UnitOfTemperature.CELSIUS
-    _attr_native_wind_speed_unit = UnitOfSpeed.KILOMETERS_PER_HOUR
+    _attr_native_wind_speed_unit = UnitOfSpeed.METERS_PER_SECOND
+    _attr_native_pressure_unit = UnitOfPressure.HPA
+    _attr_native_visibility_unit = UnitOfLength.KILOMETERS
+    _attr_native_precipitation_unit = UnitOfPrecipitationDepth.MILLIMETERS
     _attr_attribution = "Dati meteo forniti da iLMeteo.it (www.ilmeteo.it)"
     _attr_supported_features = (
         WeatherEntityFeature.FORECAST_DAILY | WeatherEntityFeature.FORECAST_HOURLY
     )
 
-    def __init__(
-        self, coordinator: IlMeteoCoordinator, entry: ConfigEntry
-    ) -> None:
+    def __init__(self, coordinator: IlMeteoCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator)
         self._place_name = entry.data[CONF_PLACE_NAME]
         self._site_number = entry.data[CONF_SITE_NUMBER]
@@ -85,167 +74,133 @@ class IlMeteoWeather(CoordinatorEntity[IlMeteoCoordinator], WeatherEntity):
             "name": f"iLMeteo.it {self._place_name}",
             "manufacturer": "iLMeteo.it",
             "entry_type": "service",
-            "configuration_url": self._info_url,
+            "configuration_url": coordinator.link,
         }
 
         # Generic entity_id, set directly (only applies on first creation)
         self.entity_id = f"weather.ilmeteo_site_{self._site_number}"
 
-    @property
-    def _info_url(self) -> str:
-        """Configured municipality's iLMeteo.it page, or the homepage."""
-        days = self._days
-        if days and days[0].get("url"):
-            return days[0]["url"]
-        return DEFAULT_INFO_URL
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        """Push new forecasts to subscribed cards as well as the state."""
+        super()._handle_coordinator_update()
+        self.hass.async_create_task(self.async_update_listeners(None))
 
     # ------------------------------------------------------------------
-    # Coordinator data accessors
+    # Current conditions: the hourly slot containing "now"
     # ------------------------------------------------------------------
 
     @property
-    def _current(self) -> dict[str, Any]:
-        return (self.coordinator.data or {}).get("current") or {}
+    def _snapshot(self) -> Snapshot | None:
+        return self.coordinator.data
 
     @property
-    def _daily(self) -> list[dict[str, Any]]:
-        return (self.coordinator.data or {}).get("daily") or []
-
-    @property
-    def _days(self) -> list[dict[str, Any]]:
-        return (self.coordinator.data or {}).get("days") or []
-
-    # ------------------------------------------------------------------
-    # Current conditions (real1)
-    # ------------------------------------------------------------------
-
-    @property
-    def native_temperature(self) -> float | None:
-        return self._current.get("temperature")
-
-    @property
-    def humidity(self) -> float | None:
-        return self._current.get("humidity")
-
-    @property
-    def native_wind_speed(self) -> float | None:
-        return self._current.get("wind_speed")
-
-    @property
-    def wind_bearing(self) -> float | None:
-        return wind_bearing(self._current.get("wind_dir"))
+    def _now(self) -> HourlyForecast | None:
+        return self._snapshot.current if self._snapshot else None
 
     @property
     def condition(self) -> str | None:
-        cur = self._current
-        if not cur.get("condition_text") and not cur.get("condition_code"):
+        slot = self._now
+        if slot is None:
             return None
-        raw = map_condition(cur.get("condition_text"), cur.get("condition_code"))
-        # real1 never uses night codes (>=100) — correct using HA's sun helper.
-        return _apply_night(raw, not sun_helper.is_up(self.hass))
+        return outlook_to_condition(
+            slot.outlook, is_night=slot.is_night, intensity=slot.precipitation_intensity
+        )
+
+    @property
+    def native_temperature(self) -> float | None:
+        return self._now.temperature if self._now else None
+
+    @property
+    def native_apparent_temperature(self) -> float | None:
+        return self._now.apparent_temperature if self._now else None
+
+    @property
+    def native_dew_point(self) -> float | None:
+        return self._snapshot.dew_point if self._snapshot else None
+
+    @property
+    def humidity(self) -> float | None:
+        return self._now.humidity if self._now else None
+
+    @property
+    def native_pressure(self) -> float | None:
+        return self._now.pressure if self._now else None
+
+    @property
+    def native_visibility(self) -> float | None:
+        return _km(self._now.visibility) if self._now else None
+
+    @property
+    def uv_index(self) -> float | None:
+        return self._now.uv_index if self._now else None
+
+    @property
+    def native_wind_speed(self) -> float | None:
+        return self._now.wind_speed if self._now else None
+
+    @property
+    def native_wind_gust_speed(self) -> float | None:
+        return self._now.wind_gust if self._now else None
+
+    @property
+    def wind_bearing(self) -> float | None:
+        return self._now.wind_bearing if self._now else None
 
     # ------------------------------------------------------------------
     # Forecasts
     # ------------------------------------------------------------------
 
     async def async_forecast_daily(self) -> list[Forecast] | None:
-        """Daily forecast: min/max/precip% from day1, precip amount from tri1."""
-        daily = self._daily
-        days = self._days
-        if not daily:
+        """Daily forecast from today; conditions always in their day variant."""
+        if not self._snapshot or not self._snapshot.daily:
             return None
-
-        forecasts: list[Forecast] = []
-        for i, d in enumerate(daily):
-            tri_day = days[i] if i < len(days) else None
-            precip = None
-            if tri_day:
-                precip = round(
-                    sum(h.get("precipitation") or 0.0 for h in tri_day.get("hours") or []),
-                    2,
-                )
-            date_str = tri_day.get("date") if tri_day else None
-
-            forecasts.append(
-                Forecast(
-                    datetime=_iso_date(date_str) if date_str else dt_util.now().isoformat(),
-                    native_temperature=d.get("temp_max"),
-                    native_templow=d.get("temp_min"),
-                    native_precipitation=precip,
-                    precipitation_probability=d.get("precipitation_probability"),
-                    native_wind_speed=d.get("wind_speed"),
-                    wind_bearing=wind_bearing(d.get("wind_dir")),
-                    # Daily forecasts represent the whole day — no night correction.
-                    condition=map_condition(None, d.get("condition_code")),
-                )
+        return [
+            Forecast(
+                datetime=datetime.combine(
+                    day.date, time.min, tzinfo=QUOTA_TIMEZONE
+                ).isoformat(),
+                condition=outlook_to_condition(
+                    day.outlook, intensity=day.precipitation_intensity
+                ),
+                native_temperature=day.temperature_max,
+                native_templow=day.temperature_min,
+                native_precipitation=day.precipitation,
+                precipitation_probability=(
+                    round(day.precipitation_probability)
+                    if day.precipitation_probability is not None
+                    else None
+                ),
+                native_pressure=day.pressure,
+                native_wind_speed=day.wind_speed,
+                native_wind_gust_speed=day.wind_gust,
+                wind_bearing=day.wind_bearing,
             )
-        return forecasts or None
+            for day in self._snapshot.daily
+        ]
 
     async def async_forecast_hourly(self) -> list[Forecast] | None:
-        """3-hourly forecast from tri1."""
-        forecasts: list[Forecast] = []
-        for day in self._days:
-            for h in day.get("hours") or []:
-                dt = _parse_slot_time(day.get("date"), h.get("time"))
-                raw = map_condition(
-                    h.get("condition_text"), h.get("condition_code")
-                )
-                # tri1 uses night codes (>=100) when iLMeteo provides them,
-                # but not always. Apply the correction from the slot's local
-                # time as a reliable fallback.
-                is_night = _is_night_at(dt) if dt else False
-                forecasts.append(
-                    Forecast(
-                        datetime=(dt or dt_util.now()).isoformat(),
-                        native_temperature=h.get("temperature"),
-                        native_apparent_temperature=h.get("wind_chill"),
-                        humidity=h.get("humidity"),
-                        native_precipitation=h.get("precipitation"),
-                        native_wind_speed=h.get("wind_speed"),
-                        wind_bearing=wind_bearing(h.get("wind_dir")),
-                        condition=_apply_night(raw, is_night),
-                    )
-                )
-        return forecasts or None
-
-
-# ------------------------------------------------------------------
-# Date/time helpers
-# ------------------------------------------------------------------
-
-def _iso_date(date_str: str | None) -> str:
-    """'DD/MM/YYYY' -> ISO string, labeled local (not converted from UTC)."""
-    if not date_str:
-        return dt_util.now().isoformat()
-    try:
-        dt = datetime.strptime(date_str, "%d/%m/%Y")
-        return dt.replace(tzinfo=dt_util.DEFAULT_TIME_ZONE).isoformat()
-    except ValueError:
-        return dt_util.now().isoformat()
-
-
-def _parse_slot_time(
-    date_str: str | None, time_str: str | None
-) -> datetime | None:
-    """'DD/MM/YYYY' + 'HH.MM' -> local datetime."""
-    if not date_str or not time_str:
-        return None
-    try:
-        d = datetime.strptime(date_str, "%d/%m/%Y")
-        hour = int(time_str.split(".")[0])
-        dt = d.replace(hour=hour, minute=0, second=0, microsecond=0)
-        return dt.replace(tzinfo=dt_util.DEFAULT_TIME_ZONE)
-    except (ValueError, IndexError):
-        return None
-
-
-def _is_night_at(dt: datetime) -> bool:
-    """Return True if the given local datetime falls between 21:00 and 06:00.
-
-    A simple time-of-day heuristic — avoids a dependency on ephem or
-    real-time astral calculations for forecast slots that may be days away.
-    The exact sunrise/sunset varies by season and location but this range
-    safely covers astronomical darkness year-round in Italy.
-    """
-    hour = dt.hour
-    return hour >= 21 or hour < 6
+        """Hourly forecast from the current hour, about two and a half days."""
+        if not self._snapshot or not self._snapshot.hourly:
+            return None
+        return [
+            Forecast(
+                datetime=slot.time.isoformat(),
+                condition=outlook_to_condition(
+                    slot.outlook,
+                    is_night=slot.is_night,
+                    intensity=slot.precipitation_intensity,
+                ),
+                native_temperature=slot.temperature,
+                native_apparent_temperature=slot.apparent_temperature,
+                native_dew_point=dew_point(slot.temperature, slot.humidity),
+                humidity=slot.humidity,
+                native_precipitation=slot.precipitation,
+                native_pressure=slot.pressure,
+                native_wind_speed=slot.wind_speed,
+                native_wind_gust_speed=slot.wind_gust,
+                wind_bearing=slot.wind_bearing,
+                uv_index=slot.uv_index,
+            )
+            for slot in self._snapshot.hourly
+        ]

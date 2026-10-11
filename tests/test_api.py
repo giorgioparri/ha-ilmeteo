@@ -375,6 +375,12 @@ def test_snow_detected_from_either_flag():
     assert parse_hourly(payload)[21].snowfall == 1.66
 
 
+def test_hourly_carries_snow_level():
+    slots = parse_hourly(_fixture("api_hourly_5658.json"))
+    assert slots[0].snow_level == 3326
+    assert slots[51].snow_level is None  # 03:00 on 10 Oct, null in the fixture
+
+
 def test_rain_slots_have_no_snowfall():
     slot = parse_hourly(_fixture("api_hourly_5658.json"))[21]
     assert slot.precipitation == 1.66

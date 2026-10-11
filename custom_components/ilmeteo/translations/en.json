@@ -2,6 +2,43 @@
   "config": {
     "step": {
       "user": {
+        "title": "iLMeteo.it — API key",
+        "description": "Enter the API key generated in your iLMeteo.it account area.\n\nEach key has a daily request limit, shared by every location using it: refreshing every 30 minutes, one location uses about 100 requests a day.",
+        "data": {
+          "api_key": "API key"
+        }
+      },
+      "method": {
+        "title": "iLMeteo.it — Choose the location",
+        "description": "How do you want to choose the location?",
+        "menu_options": {
+          "nearby": "Near the home location",
+          "search": "Search by name",
+          "region": "Region, province and location"
+        }
+      },
+      "nearby": {
+        "title": "iLMeteo.it — Nearby locations",
+        "description": "Locations within 15 km of the home location set in Home Assistant, nearest first. Hamlets and districts that use another location's forecast say so next to the name.",
+        "data": {
+          "place": "Location"
+        }
+      },
+      "search": {
+        "title": "iLMeteo.it — Search by name",
+        "description": "Type the name of the municipality, hamlet or district (for example Roma Monte Sacro).",
+        "data": {
+          "query": "Name"
+        }
+      },
+      "search_results": {
+        "title": "iLMeteo.it — Results",
+        "description": "Locations that use another location's forecast say so next to the name.",
+        "data": {
+          "place": "Location"
+        }
+      },
+      "region": {
         "title": "iLMeteo.it — Region",
         "description": "Select the region.",
         "data": {
@@ -10,21 +47,21 @@
       },
       "province": {
         "title": "iLMeteo.it — Province",
-        "description": "Region: {region}. Select the province.",
+        "description": "Select the province.",
         "data": {
           "province": "Province"
         }
       },
-      "city": {
-        "title": "iLMeteo.it — Municipality",
-        "description": "{province} ({region}). Select the municipality.",
+      "place": {
+        "title": "iLMeteo.it — Location",
+        "description": "Municipalities, hamlets and districts of the province. Locations that use another location's forecast say so next to the name.",
         "data": {
-          "city": "Municipality"
+          "place": "Location"
         }
       },
       "details": {
         "title": "iLMeteo.it — Instance details",
-        "description": "Selected location: **{city}**\n\nChoose a custom display name (optional), which dedicated sensors to create, and configure weather alert notifications.\n\n**Weather alert notifications**\nOn by default. Uses the iLMeteo data already fetched as a heuristic source. To add official Civil Protection bulletins, install the DPC Alert integration by caiosweet and select sensor.dpc_alert and/or sensor.dpc_vigilance in the dedicated fields.\n\n**Additional push notifications**\nThe native persistent notification is always sent. You can add one or more mobile devices with the companion app installed.\n\nAll settings can be changed later from Options.",
+        "description": "Selected location: **{place}**\n\nChoose a custom display name (optional), which dedicated sensors to create, and configure weather alert notifications.\n\n**Weather alert notifications**\nOn by default. Uses the iLMeteo data already fetched as a heuristic source. To add official Civil Protection bulletins, install the DPC Alert integration by caiosweet and select sensor.dpc_alert and/or sensor.dpc_vigilance in the dedicated fields.\n\n**Additional push notifications**\nThe native persistent notification is always sent. You can add one or more mobile devices with the companion app installed.\n\nAll settings can be changed later from Options.",
         "data": {
           "name": "Custom name",
           "enabled_sensors": "Sensors to create",
@@ -34,36 +71,34 @@
           "dpc_vigilance_entity_id": "Civil Protection vigilance entity (optional)"
         }
       },
-      "reconfigure_region": {
-        "title": "iLMeteo.it — Change location: Region",
-        "description": "Select the new region. The display name will be reset to the new municipality's name; you can customize it again afterwards from Options.",
+      "reauth_confirm": {
+        "title": "iLMeteo.it — API key",
+        "description": "The location **{place}** needs a valid API key. If you are upgrading from version 1.x, it is the key generated in your iLMeteo.it account area: entered here, it is also used by the other locations still without one.",
         "data": {
-          "region": "Region"
-        }
-      },
-      "reconfigure_province": {
-        "title": "iLMeteo.it — Change location: Province",
-        "description": "Region: {region}. Select the province.",
-        "data": {
-          "province": "Province"
-        }
-      },
-      "reconfigure_city": {
-        "title": "iLMeteo.it — Change location: Municipality",
-        "description": "{province} ({region}). Select the new municipality.",
-        "data": {
-          "city": "Municipality"
+          "api_key": "API key"
         }
       }
     },
     "error": {
+      "invalid_auth": "The API key is invalid, has expired or has been disabled.",
+      "quota_exceeded": "The API key has used up today's requests. Try again after midnight (Italian time).",
+      "out_of_scope": "The API key is not enabled for this iLMeteo.it feature.",
       "cannot_connect": "Could not connect to iLMeteo.it. Please try again later.",
-      "no_data": "No weather data available for this municipality.",
-      "invalid_city": "Invalid municipality."
+      "query_too_short": "Type at least 2 characters.",
+      "no_results": "No location found with this name.",
+      "invalid_place": "Invalid location."
     },
     "abort": {
-      "already_configured": "This municipality is already configured, or already tracked by another instance of the integration.",
-      "reconfigure_successful": "Location updated successfully."
+      "already_configured": "This location is already configured.",
+      "reconfigure_successful": "Location updated successfully.",
+      "reauth_successful": "API key updated successfully.",
+      "invalid_place": "Invalid location.",
+      "no_places_nearby": "No location found within 15 km of the home location. Use the search by name.",
+      "missing_api_key": "This location has no API key yet: enter it from the re-authentication request.",
+      "invalid_auth": "The API key is invalid, has expired or has been disabled.",
+      "quota_exceeded": "The API key has used up today's requests. Try again after midnight (Italian time).",
+      "out_of_scope": "The API key is not enabled for this iLMeteo.it feature.",
+      "cannot_connect": "Could not connect to iLMeteo.it. Please try again later."
     }
   },
   "options": {
@@ -82,10 +117,28 @@
       }
     }
   },
-  "issues": {
-    "box_parse_error": {
-      "title": "iLMeteo.it: data could not be refreshed for {place_name}",
-      "description": "The integration can no longer parse the {box_type} data from iLMeteo.it for {place_name} — iLMeteo likely changed the page layout. The data shown may be stale until this is resolved. Check whether an integration update is available, or report the issue."
+  "selector": {
+    "optional_sensors": {
+      "options": {
+        "temperature": "Temperature (current)",
+        "apparent_temperature": "Apparent temperature (current)",
+        "dew_point": "Dew point (current)",
+        "humidity": "Humidity (current)",
+        "pressure": "Pressure (current)",
+        "visibility": "Visibility (current)",
+        "uv_index": "UV index (current)",
+        "wind_speed": "Wind speed (current)",
+        "wind_gust": "Wind gust (current)",
+        "wind_bearing": "Wind bearing (current)",
+        "precipitation_hour": "Precipitation in the hour (current)",
+        "freezing_level": "Freezing level (current)",
+        "snow_level": "Snow level (current)",
+        "temperature_min": "Minimum temperature (today)",
+        "temperature_max": "Maximum temperature (today)",
+        "precipitation_probability": "Precipitation probability (today)",
+        "precipitation_today": "Total precipitation (today)",
+        "reliability": "Forecast reliability (today)"
+      }
     }
   }
 }

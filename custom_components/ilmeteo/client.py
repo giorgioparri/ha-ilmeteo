@@ -199,9 +199,10 @@ class DailyForecast:
 class HourlyForecast:
     """One hourly slot. time is timezone-aware, start of the hour.
 
-    Speeds in m/s, visibility in m, pressure in hPa. The gateway reports
-    precipitation in mm for rain and in cm for snow (glossary): a snow slot
-    therefore has precipitation None and the amount in snowfall, in cm.
+    Speeds in m/s, visibility, freezing and snow level in m, pressure in
+    hPa. The gateway reports precipitation in mm for rain and in cm for snow
+    (glossary): a snow slot therefore has precipitation None and the amount
+    in snowfall, in cm.
     pv_production is the gateway's uvDetails.kWhProduction, whose unit and
     reference system are still to be confirmed by iLMeteo.
     """
@@ -222,6 +223,7 @@ class HourlyForecast:
     precipitation_intensity: str | None
     snowfall: float | None
     freezing_level: float | None
+    snow_level: float | None
     pv_production: float | None
 
 
@@ -379,6 +381,7 @@ def parse_hourly(payload: Any) -> list[HourlyForecast]:
                 precipitation_intensity=_intensity(row),
                 snowfall=amount if is_snow else None,
                 freezing_level=_num(row.get("freezingLevel")),
+                snow_level=_num(row.get("snowLevel")),
                 pv_production=_num(uv_details.get("kWhProduction")),
             )
         )

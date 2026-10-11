@@ -6,6 +6,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-10-11
+
+### Changed
+- **Breaking:** the integration now uses iLMeteo.it's official API Gateway instead of reading the public forecast boxes, and requires a personal API key generated in your iLMeteo.it account.
+- Upgrading from 1.x: after the restart Home Assistant asks to re-authenticate iLMeteo.it under Settings → Devices & services. Enter the key once and it is used for every configured location; locations, entities and options are kept.
+- Locations are chosen by nearby places, by name, or by region, province and place, using iLMeteo.it's own list; a place without a forecast of its own shows which place its forecast comes from.
+- Forecasts update every 30 minutes. Each key has 1000 requests per day shared by all its locations: when the limit is reached the last forecasts stay visible and keep advancing hour by hour, a notification is shown and updates resume after midnight, Italian time.
+- Current conditions come from the forecast hour containing the current time; day and night come from the forecast itself instead of the sun position.
+- Heavy rain is shown as `pouring` when iLMeteo.it reports a strong precipitation intensity.
+- Alert notifications link to the location's page on ilmeteo.it.
+- Diagnostics include the key status and today's quota; the API key is redacted.
+
+### Added
+- 11 optional sensors: apparent temperature, dew point, pressure, visibility, UV index, wind gust, precipitation in the current hour, freezing level, snow level, total precipitation today and forecast reliability. Enable them from the integration options; after the upgrade a one-time notification lists them.
+- The weather entity reports apparent temperature, dew point, pressure, visibility, UV index and wind gust.
+- Re-authentication flow, shown when iLMeteo.it rejects the key as invalid, expired or disabled.
+
+### Removed
+- The box scraper and the bundled location dataset.
+
 ## [1.2.2] - 2026-09-28
 
 ### Changed
@@ -200,7 +220,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Added
 - Initial draft based on the official iLMeteo REST API (later abandoned, enterprise-only).
 
-[Unreleased]: https://github.com/giorgioparri/ha-ilmeteo/compare/v1.2.2...HEAD
+[Unreleased]: https://github.com/giorgioparri/ha-ilmeteo/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/giorgioparri/ha-ilmeteo/compare/v1.2.2...v2.0.0
 [1.2.2]: https://github.com/giorgioparri/ha-ilmeteo/compare/v1.2.1...v1.2.2
 [1.2.1]: https://github.com/giorgioparri/ha-ilmeteo/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/giorgioparri/ha-ilmeteo/compare/v1.1.4...v1.2.0

@@ -23,6 +23,7 @@ from homeassistant.const import (
     UnitOfTemperature,
 )
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -69,13 +70,13 @@ class IlMeteoWeather(CoordinatorEntity[IlMeteoCoordinator], WeatherEntity):
 
         # Identity tied to entry_id, not location -> survives reconfigure
         self._attr_unique_id = f"{entry.entry_id}_weather"
-        self._attr_device_info = {
-            "identifiers": {(DOMAIN, entry.entry_id)},
-            "name": f"iLMeteo.it {self._place_name}",
-            "manufacturer": "iLMeteo.it",
-            "entry_type": "service",
-            "configuration_url": coordinator.link,
-        }
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, entry.entry_id)},
+            name=f"iLMeteo.it {self._place_name}",
+            manufacturer="iLMeteo.it",
+            entry_type=DeviceEntryType.SERVICE,
+            configuration_url=coordinator.link,
+        )
 
         # Generic entity_id, set directly (only applies on first creation)
         self.entity_id = f"weather.ilmeteo_site_{self._site_number}"

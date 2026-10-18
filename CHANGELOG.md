@@ -27,6 +27,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Removed
 - The box scraper and the bundled location dataset.
 
+## [1.2.3] - 2026-10-18
+
+### Changed
+- Device information is built with the `DeviceInfo` class that Home Assistant 2026.11 turns into a dataclass, instead of a plain dictionary. Nothing to do — the device page looks the same, and the integration keeps working once Home Assistant drops support for the dictionary form.
+
 ## [1.2.2] - 2026-09-28
 
 ### Changed
@@ -222,7 +227,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Initial draft based on the official iLMeteo REST API (later abandoned, enterprise-only).
 
 [Unreleased]: https://github.com/giorgioparri/ha-ilmeteo/compare/v2.0.0...HEAD
-[2.0.0]: https://github.com/giorgioparri/ha-ilmeteo/compare/v1.2.2...v2.0.0
+[2.0.0]: https://github.com/giorgioparri/ha-ilmeteo/compare/v1.2.3...v2.0.0
+[1.2.3]: https://github.com/giorgioparri/ha-ilmeteo/compare/v1.2.2...v1.2.3
 [1.2.2]: https://github.com/giorgioparri/ha-ilmeteo/compare/v1.2.1...v1.2.2
 [1.2.1]: https://github.com/giorgioparri/ha-ilmeteo/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/giorgioparri/ha-ilmeteo/compare/v1.1.4...v1.2.0

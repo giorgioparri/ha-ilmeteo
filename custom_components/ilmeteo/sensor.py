@@ -22,6 +22,7 @@ from homeassistant.const import (
 )
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -147,13 +148,13 @@ class IlMeteoSensor(CoordinatorEntity[IlMeteoCoordinator], SensorEntity):
 
         # Same device identifiers as the weather entity -> groups together
         self._attr_unique_id = f"{entry.entry_id}_{sensor_type}"
-        self._attr_device_info = {
-            "identifiers": {(DOMAIN, entry.entry_id)},
-            "name": f"iLMeteo.it {place_name}",
-            "manufacturer": "iLMeteo.it",
-            "entry_type": "service",
-            "configuration_url": self._info_url,
-        }
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, entry.entry_id)},
+            name=f"iLMeteo.it {place_name}",
+            manufacturer="iLMeteo.it",
+            entry_type=DeviceEntryType.SERVICE,
+            configuration_url=self._info_url,
+        )
 
         # Generic entity_id, set directly (only applies on first creation)
         self.entity_id = f"sensor.ilmeteo_site_{site_number}_{sensor_type}"

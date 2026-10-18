@@ -223,8 +223,28 @@ def test_page_url_spaces_become_plus():
     assert place_page_url("Roma Testaccio") == "https://www.ilmeteo.it/meteo/roma+testaccio"
 
 
-def test_page_url_keeps_apostrophes():
-    assert place_page_url("Castiglione d'Orcia") == "https://www.ilmeteo.it/meteo/castiglione+d'orcia"
+# iLMeteo's slugify (Oct 2026), an ICU transliterator: Any-Latin; remove
+# nonspacing marks, punctuation and symbols; Latin-ASCII; lower; collapse
+# spaces; separators -> '+'. Punctuation is removed, not turned into a space.
+
+def test_page_url_drops_apostrophes():
+    # The site links castiglione+dorcia; castiglione+d'orcia only redirects.
+    assert place_page_url("Castiglione d'Orcia") == "https://www.ilmeteo.it/meteo/castiglione+dorcia"
+    assert place_page_url("Reggio nell'Emilia") == "https://www.ilmeteo.it/meteo/reggio+nellemilia"
+
+
+def test_page_url_drops_punctuation_without_adding_a_separator():
+    assert place_page_url("Lucca-Sicula") == "https://www.ilmeteo.it/meteo/luccasicula"
+    assert place_page_url("S. Maria (TN)") == "https://www.ilmeteo.it/meteo/s+maria+tn"
+
+
+def test_page_url_drops_symbols():
+    assert place_page_url("Roma + Lazio") == "https://www.ilmeteo.it/meteo/roma+lazio"
+
+
+def test_page_url_transliterates_to_ascii():
+    assert place_page_url("St. Ulrich in Gröden") == "https://www.ilmeteo.it/meteo/st+ulrich+in+groden"
+    assert place_page_url("Großkirchheim") == "https://www.ilmeteo.it/meteo/grosskirchheim"
 
 
 def test_page_url_drops_accents():

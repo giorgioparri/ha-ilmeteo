@@ -153,16 +153,31 @@ def outlook_to_condition(
 #
 # iLMeteo authorized the integration on condition that notifications link to
 # the location's page. The API Gateway does not return that URL, so it is
-# built from the place name with the rule the site uses: lowercase, accents
-# dropped, spaces as '+', apostrophes kept ("castiglione+d'orcia").
+# built from the place name with the site's own slugify (iLMeteo, Oct 2026),
+# an ICU transliterator: Any-Latin; remove nonspacing marks, punctuation and
+# symbols; Latin-ASCII; lower; collapse spaces; separators -> '+'.
+# Punctuation is dropped, not replaced: "Castiglione d'Orcia" becomes
+# "castiglione+dorcia". Places with duplicate names may have other slugs.
 # ---------------------------------------------------------------------------
+
+# Latin-ASCII letters that NFKD does not decompose.
+_LATIN_ASCII = str.maketrans({
+    "ß": "ss", "æ": "ae", "Æ": "AE", "œ": "oe", "Œ": "OE",
+    "ø": "o", "Ø": "O", "đ": "d", "Đ": "D", "ł": "l", "Ł": "L",
+})
 
 
 def place_page_url(name: str | None) -> str:
     """Return the ilmeteo.it page of a place, or the homepage without a name."""
     if not name or not name.strip():
         return DEFAULT_INFO_URL
-    decomposed = unicodedata.normalize("NFKD", name)
-    plain = "".join(ch for ch in decomposed if not unicodedata.combining(ch))
-    slug = "+".join(plain.lower().split())
-    return PLACE_PAGE_BASE_URL + quote(slug, safe="+'")
+    decomposed = unicodedata.normalize("NFKD", name.translate(_LATIN_ASCII))
+    kept = []
+    for ch in decomposed:
+        category = unicodedata.category(ch)
+        if category[0] == "Z":
+            kept.append(" ")
+        elif category[0] not in "MPS" and ch.isascii():
+            kept.append(ch)
+    slug = "+".join("".join(kept).lower().split())
+    return PLACE_PAGE_BASE_URL + quote(slug, safe="+") if slug else DEFAULT_INFO_URL

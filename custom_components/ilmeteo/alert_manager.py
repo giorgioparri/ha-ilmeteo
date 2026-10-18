@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.storage import Store
@@ -14,7 +13,7 @@ from .alerts import (
     HeuristicAlertProvider,
     WeatherAlert,
 )
-from .const import DEFAULT_INFO_URL, DOMAIN, EVENT_WEATHER_ALERT, ILMETEO_LOGO_URL
+from .const import DOMAIN, EVENT_WEATHER_ALERT, ILMETEO_LOGO_URL
 from .coordinator import IlMeteoCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -33,6 +32,10 @@ class IlMeteoAlertManager:
     same day are rendered into a single persistent_notification (and a single
     mobile push), re-created whenever the set of alerts for that day changes,
     and dismissed when no alerts remain for that day.
+
+    link is the place's page on ilmeteo.it (const.place_page_url): every
+    notification carries it, as iLMeteo asked when authorizing the
+    integration.
     """
 
     def __init__(
@@ -42,6 +45,7 @@ class IlMeteoAlertManager:
         entry_id: str,
         citta: str,
         place_name: str,
+        link: str,
         dpc_entity_id: str | None = None,
         dpc_vigilance_entity_id: str | None = None,
         notify_targets: list[str] | None = None,
@@ -51,6 +55,7 @@ class IlMeteoAlertManager:
         self.entry_id = entry_id
         self.citta = citta
         self.place_name = place_name
+        self.link = link
         self.notify_targets = notify_targets or []
         # Add future providers here (official iLMeteo feed, if/when offered).
         self.providers: list[AlertProvider] = [HeuristicAlertProvider()]
@@ -82,7 +87,7 @@ class IlMeteoAlertManager:
         self.hass.async_create_task(self._evaluate())
 
     async def _evaluate(self) -> None:
-        data = self.coordinator.data or {}
+        data = self.coordinator.data
         alerts: list[WeatherAlert] = []
         for provider in self.providers:
             try:
@@ -96,7 +101,7 @@ class IlMeteoAlertManager:
                 )
 
         current = {alert.alert_id: alert for alert in alerts}
-        link = self._link_for(data)
+        link = self.link
 
         # Determine which days changed (new alert, severity change, or cleared)
         changed_days: set[str] = set()
@@ -151,14 +156,6 @@ class IlMeteoAlertManager:
                 await self._dismiss_day(day)
 
         await self._store.async_save(self._active)
-
-    @staticmethod
-    def _link_for(data: dict[str, Any]) -> str:
-        """Prefer the comune-specific iLMeteo URL captured from the tri1 box."""
-        days = data.get("days") or []
-        if days and days[0].get("url"):
-            return days[0]["url"]
-        return DEFAULT_INFO_URL
 
     def _notification_id(self, day: str) -> str:
         return f"{DOMAIN}_{self.entry_id}_{day}"

@@ -21,7 +21,13 @@ jobs:
           python-version: "3.13"
       - name: Install dependencies
         run: pip install aiohttp
-      - name: Run parser tests
-        run: python tests/test_parser.py
       - name: Run alert tests
         run: python tests/test_alerts.py
+      - name: Run API client tests
+        run: python tests/test_api.py
+      - name: Run condition mapping tests
+        run: python tests/test_conditions.py
+      - name: Run quota tests
+        run: python tests/test_quota.py
+      - name: Run update logic tests
+        run: python tests/test_update.py

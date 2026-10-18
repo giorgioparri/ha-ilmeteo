@@ -1,0 +1,277 @@
+"""Unit tests for the API Gateway outlook -> HA condition mapping (const.py).
+
+Run with:  python tests/test_conditions.py
+No Home Assistant dependency. The outlook codes and their Italian labels come
+from the gateway glossary (Glossary_API_Gateway_V02.pdf); the label is used
+here only to check that codes already handled by the 1.x scraper keep the
+condition they had.
+"""
+import json
+import os
+import sys
+
+sys.path.insert(
+    0, os.path.join(os.path.dirname(__file__), "..", "custom_components", "ilmeteo")
+)
+
+from const import (
+    DEFAULT_INFO_URL,
+    OUTLOOK_CONDITION_MAP,
+    POURING_INTENSITIES,
+    POURING_OUTLOOKS,
+    outlook_to_condition,
+    place_page_url,
+)
+
+FIXTURES = os.path.join(os.path.dirname(__file__), "fixtures")
+
+# Glossary: code -> Italian label (day description).
+GLOSSARY = {
+    1: "sereno",
+    2: "sole e caldo",
+    3: "poco nuvoloso",
+    4: "nubi sparse",
+    5: "pioggia e schiarite",
+    6: "pioggia mista a neve e schiarite",
+    7: "neve e schiarite",
+    8: "coperto",
+    9: "pioggia debole",
+    10: "pioggia",
+    11: "neve",
+    12: "pioggia mista a neve",
+    13: "temporale",
+    14: "nebbia",
+    15: "nebbia al mattino",
+    16: "temporale e schiarite",
+    17: "grandine",
+    18: "neve debole",
+    19: "temporale con grandine e schiarite",
+    20: "temporale con grandine",
+    21: "poco nuvoloso e caldo",
+    22: "sole e caldo",
+    23: "nubi sparse e caldo",
+    24: "caldo estremo",
+}
+
+# Expected daytime condition for every glossary code.
+EXPECTED_DAY = {
+    1: "sunny",
+    2: "sunny",
+    3: "partlycloudy",
+    4: "partlycloudy",
+    5: "rainy",
+    6: "snowy-rainy",
+    7: "snowy",
+    8: "cloudy",
+    9: "rainy",
+    10: "rainy",
+    11: "snowy",
+    12: "snowy-rainy",
+    13: "lightning-rainy",
+    14: "fog",
+    15: "fog",
+    16: "lightning-rainy",
+    17: "hail",
+    18: "snowy",
+    19: "hail",
+    20: "hail",
+    21: "partlycloudy",
+    22: "sunny",
+    23: "partlycloudy",
+    24: "sunny",
+}
+
+# Valid HA weather conditions (homeassistant.components.weather).
+HA_CONDITIONS = {
+    "clear-night", "cloudy", "exceptional", "fog", "hail", "lightning",
+    "lightning-rainy", "partlycloudy", "pouring", "rainy", "snowy",
+    "snowy-rainy", "sunny", "windy", "windy-variant",
+}
+
+
+def test_map_covers_exactly_the_glossary():
+    assert set(OUTLOOK_CONDITION_MAP) == set(GLOSSARY)
+
+
+def test_every_value_is_a_valid_ha_condition():
+    assert set(OUTLOOK_CONDITION_MAP.values()) <= HA_CONDITIONS
+
+
+def test_day_conditions():
+    for code, expected in EXPECTED_DAY.items():
+        assert outlook_to_condition(code) == expected, code
+        assert outlook_to_condition(code, is_night=False) == expected, code
+
+
+def test_night_turns_only_sunny_into_clear_night():
+    # Same rule as 1.1.4 (#7): HA has no night variant for partlycloudy.
+    for code, day in EXPECTED_DAY.items():
+        night = outlook_to_condition(code, is_night=True)
+        if day == "sunny":
+            assert night == "clear-night", code
+        else:
+            assert night == day, code
+
+
+# Conditions the 1.x scraper gave to these labels (its CONDITION_TEXT_MAP,
+# removed in 2.0 together with the scraper). Frozen here so 2.0 keeps them.
+SCRAPER_1X_CONDITIONS = {
+    "sereno": "sunny",
+    "poco nuvoloso": "partlycloudy",
+    "nubi sparse": "partlycloudy",
+    "coperto": "cloudy",
+    "pioggia debole": "rainy",
+    "pioggia": "rainy",
+    "neve": "snowy",
+    "pioggia mista a neve": "snowy-rainy",
+    "temporale": "lightning-rainy",
+    "nebbia": "fog",
+    "grandine": "hail",
+    "neve debole": "snowy",
+}
+
+
+def test_codes_known_to_the_scraper_keep_their_condition():
+    # Labels the 1.x scraper already mapped must not change behaviour.
+    shared = {c: label for c, label in GLOSSARY.items() if label in SCRAPER_1X_CONDITIONS}
+    assert len(shared) == 12
+    for code, label in shared.items():
+        assert outlook_to_condition(code) == SCRAPER_1X_CONDITIONS[label], (code, label)
+
+
+def test_unknown_or_missing_code_is_none():
+    assert outlook_to_condition(None) is None
+    assert outlook_to_condition(None, is_night=True) is None
+    assert outlook_to_condition(0) is None
+    assert outlook_to_condition(25) is None
+    assert outlook_to_condition(101) is None  # 1.x sprite night codes are not outlook codes
+
+
+# --- Pouring from precipitation intensity --------------------------------
+
+# Glossary order: ABSENT, SCANT, MODERATE, SUBSTANTIAL, COPIOUS, STRONG,
+# REALLY_STRONG. In the hourly fixture SUBSTANTIAL slots carry 0.7-1.8 mm/h,
+# COPIOUS 2 mm/h and the one STRONG slot 3.8 mm/h.
+
+
+def test_pouring_rule_constants():
+    assert {"STRONG", "REALLY_STRONG"} == POURING_INTENSITIES
+    # "pioggia e schiarite" (showers) and "pioggia"; "pioggia debole" never
+    # pours, whatever the intensity field says.
+    assert {5, 10} == POURING_OUTLOOKS
+
+
+def test_rain_becomes_pouring_only_at_strong_intensity():
+    for code in (5, 10):
+        for intensity in ("STRONG", "REALLY_STRONG"):
+            assert outlook_to_condition(code, intensity=intensity) == "pouring", (code, intensity)
+        for intensity in (None, "ABSENT", "SCANT", "MODERATE", "SUBSTANTIAL", "COPIOUS"):
+            assert outlook_to_condition(code, intensity=intensity) == "rainy", (code, intensity)
+
+
+def test_light_rain_never_pours():
+    assert outlook_to_condition(9, intensity="REALLY_STRONG") == "rainy"
+
+
+def test_intensity_does_not_touch_other_conditions():
+    for code in (1, 4, 6, 7, 8, 11, 12, 13, 16, 17, 19, 20):
+        expected = EXPECTED_DAY[code]
+        assert outlook_to_condition(code, intensity="REALLY_STRONG") == expected, code
+
+
+def test_pouring_is_the_same_by_night():
+    assert outlook_to_condition(10, is_night=True, intensity="STRONG") == "pouring"
+
+
+def test_pouring_on_real_hourly_slots():
+    with open(os.path.join(FIXTURES, "api_hourly_5658.json"), encoding="utf-8") as f:
+        rows = json.load(f)[0]["forecasts"]
+
+    def condition(i):
+        row = rows[i]
+        return outlook_to_condition(row["outlook"], intensity=row["precipitationDetails"]["intensity"])
+
+    assert condition(6) == "pouring"  # 06:00, outlook 10, STRONG, 3.83 mm
+    assert condition(5) == "rainy"  # 05:00, outlook 10, SUBSTANTIAL, 1.69 mm
+    assert condition(13) == "lightning-rainy"  # 13:00, outlook 13, COPIOUS
+
+
+def test_every_outlook_in_the_fixtures_is_mapped():
+    for name in ("api_daily_5658.json", "api_hourly_5658.json"):
+        with open(os.path.join(FIXTURES, name), encoding="utf-8") as f:
+            rows = json.load(f)[0]["forecasts"]
+        for row in rows:
+            assert outlook_to_condition(row["outlook"]) is not None, (name, row["outlook"])
+
+
+# --- iLMeteo page links ---------------------------------------------------
+
+# Notifications and device pages must link to the place's page on
+# ilmeteo.it (condition of iLMeteo's authorization). The API does not return
+# that URL, so it is built from the name. Rule checked on the live site:
+# spaces become '+', apostrophes stay, accents are dropped (the page for
+# "cefalù" declares https://www.ilmeteo.it/meteo/cefalu as canonical).
+
+
+def test_page_url_single_word():
+    assert place_page_url("Roma") == "https://www.ilmeteo.it/meteo/roma"
+
+
+def test_page_url_spaces_become_plus():
+    # The two districts linked in issue #1.
+    assert place_page_url("Roma Monte Sacro Alto") == "https://www.ilmeteo.it/meteo/roma+monte+sacro+alto"
+    assert place_page_url("Roma Testaccio") == "https://www.ilmeteo.it/meteo/roma+testaccio"
+
+
+# iLMeteo's slugify (Oct 2026), an ICU transliterator: Any-Latin; remove
+# nonspacing marks, punctuation and symbols; Latin-ASCII; lower; collapse
+# spaces; separators -> '+'. Punctuation is removed, not turned into a space.
+
+def test_page_url_drops_apostrophes():
+    # The site links castiglione+dorcia; castiglione+d'orcia only redirects.
+    assert place_page_url("Castiglione d'Orcia") == "https://www.ilmeteo.it/meteo/castiglione+dorcia"
+    assert place_page_url("Reggio nell'Emilia") == "https://www.ilmeteo.it/meteo/reggio+nellemilia"
+
+
+def test_page_url_drops_punctuation_without_adding_a_separator():
+    assert place_page_url("Lucca-Sicula") == "https://www.ilmeteo.it/meteo/luccasicula"
+    assert place_page_url("S. Maria (TN)") == "https://www.ilmeteo.it/meteo/s+maria+tn"
+
+
+def test_page_url_drops_symbols():
+    assert place_page_url("Roma + Lazio") == "https://www.ilmeteo.it/meteo/roma+lazio"
+
+
+def test_page_url_transliterates_to_ascii():
+    assert place_page_url("St. Ulrich in Gröden") == "https://www.ilmeteo.it/meteo/st+ulrich+in+groden"
+    assert place_page_url("Großkirchheim") == "https://www.ilmeteo.it/meteo/grosskirchheim"
+
+
+def test_page_url_drops_accents():
+    assert place_page_url("Cefalù") == "https://www.ilmeteo.it/meteo/cefalu"
+
+
+def test_page_url_normalizes_whitespace():
+    assert place_page_url("  Rapolano   Terme ") == "https://www.ilmeteo.it/meteo/rapolano+terme"
+
+
+def test_page_url_without_a_name_falls_back_to_the_homepage():
+    assert place_page_url("") == DEFAULT_INFO_URL
+    assert place_page_url("   ") == DEFAULT_INFO_URL
+    assert place_page_url(None) == DEFAULT_INFO_URL
+
+
+if __name__ == "__main__":
+    import traceback
+
+    tests = [v for k, v in dict(globals()).items() if k.startswith("test_")]
+    failed = 0
+    for t in tests:
+        try:
+            t()
+            print(f"PASS {t.__name__}")
+        except Exception:
+            failed += 1
+            print(f"FAIL {t.__name__}")
+            traceback.print_exc()
+    sys.exit(1 if failed else 0)

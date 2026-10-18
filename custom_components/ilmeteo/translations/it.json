@@ -2,6 +2,43 @@
   "config": {
     "step": {
       "user": {
+        "title": "iLMeteo.it — Chiave API",
+        "description": "Inserisci la chiave API generata nella tua area riservata di iLMeteo.it.\n\nOgni chiave ha un limite giornaliero di richieste, condiviso da tutte le località che la usano: con l'aggiornamento ogni 30 minuti una località consuma circa 100 richieste al giorno.",
+        "data": {
+          "api_key": "Chiave API"
+        }
+      },
+      "method": {
+        "title": "iLMeteo.it — Scelta della località",
+        "description": "Come vuoi scegliere la località?",
+        "menu_options": {
+          "nearby": "Vicino alla posizione di casa",
+          "search": "Cerca per nome",
+          "region": "Regione, provincia e località"
+        }
+      },
+      "nearby": {
+        "title": "iLMeteo.it — Località vicine",
+        "description": "Località entro 15 km dalla posizione di casa configurata in Home Assistant, dalla più vicina. Le frazioni e i quartieri che usano la previsione di un'altra località lo indicano accanto al nome.",
+        "data": {
+          "place": "Località"
+        }
+      },
+      "search": {
+        "title": "iLMeteo.it — Cerca per nome",
+        "description": "Scrivi il nome del comune, della frazione o del quartiere (per esempio Roma Monte Sacro).",
+        "data": {
+          "query": "Nome"
+        }
+      },
+      "search_results": {
+        "title": "iLMeteo.it — Risultati",
+        "description": "Le località che usano la previsione di un'altra località lo indicano accanto al nome.",
+        "data": {
+          "place": "Località"
+        }
+      },
+      "region": {
         "title": "iLMeteo.it — Regione",
         "description": "Seleziona la regione.",
         "data": {
@@ -10,21 +47,21 @@
       },
       "province": {
         "title": "iLMeteo.it — Provincia",
-        "description": "Regione: {region}. Seleziona la provincia.",
+        "description": "Seleziona la provincia.",
         "data": {
           "province": "Provincia"
         }
       },
-      "city": {
-        "title": "iLMeteo.it — Comune",
-        "description": "{province} ({region}). Seleziona il comune.",
+      "place": {
+        "title": "iLMeteo.it — Località",
+        "description": "Comuni, frazioni e quartieri della provincia. Le località che usano la previsione di un'altra località lo indicano accanto al nome.",
         "data": {
-          "city": "Comune"
+          "place": "Località"
         }
       },
       "details": {
         "title": "iLMeteo.it — Dettagli istanza",
-        "description": "Località selezionata: **{city}**\n\nScegli un nome personalizzato (facoltativo), quali sensori dedicati creare e configura le notifiche di allerta meteo.\n\n**Notifiche di allerta meteo**\nAttive per impostazione predefinita. Utilizzano i dati iLMeteo già scaricati come fonte euristica. Per aggiungere i bollettini ufficiali della Protezione Civile installa l'integrazione DPC Alert di caiosweet e seleziona sensor.dpc_alert e/o sensor.dpc_vigilance nei campi dedicati.\n\n**Notifiche push aggiuntive**\nLa notifica persistente nativa è sempre inviata. Puoi aggiungere uno o più dispositivi mobili con il companion app installato.\n\nTutto è modificabile in seguito dalle Opzioni.",
+        "description": "Località selezionata: **{place}**\n\nScegli un nome personalizzato (facoltativo), quali sensori dedicati creare e configura le notifiche di allerta meteo.\n\n**Notifiche di allerta meteo**\nAttive per impostazione predefinita. Utilizzano i dati iLMeteo già scaricati come fonte euristica. Per aggiungere i bollettini ufficiali della Protezione Civile installa l'integrazione DPC Alert di caiosweet e seleziona sensor.dpc_alert e/o sensor.dpc_vigilance nei campi dedicati.\n\n**Notifiche push aggiuntive**\nLa notifica persistente nativa è sempre inviata. Puoi aggiungere uno o più dispositivi mobili con il companion app installato.\n\nTutto è modificabile in seguito dalle Opzioni.",
         "data": {
           "name": "Nome personalizzato",
           "enabled_sensors": "Sensori da creare",
@@ -34,36 +71,34 @@
           "dpc_vigilance_entity_id": "Entità vigilanza Protezione Civile (opzionale)"
         }
       },
-      "reconfigure_region": {
-        "title": "iLMeteo.it — Cambia località: Regione",
-        "description": "Seleziona la nuova regione. Nome personalizzato e sensori configurati non cambiano se già impostati, ma il nome verrà reimpostato sul nome del nuovo comune; potrai personalizzarlo di nuovo dalle Opzioni.",
+      "reauth_confirm": {
+        "title": "iLMeteo.it — Chiave API",
+        "description": "La località **{place}** ha bisogno di una chiave API valida. Se aggiorni dalla versione 1.x, è la chiave generata nella tua area riservata di iLMeteo.it: inserita qui, viene usata anche dalle altre località che ne sono ancora prive.",
         "data": {
-          "region": "Regione"
-        }
-      },
-      "reconfigure_province": {
-        "title": "iLMeteo.it — Cambia località: Provincia",
-        "description": "Regione: {region}. Seleziona la provincia.",
-        "data": {
-          "province": "Provincia"
-        }
-      },
-      "reconfigure_city": {
-        "title": "iLMeteo.it — Cambia località: Comune",
-        "description": "{province} ({region}). Seleziona il nuovo comune.",
-        "data": {
-          "city": "Comune"
+          "api_key": "Chiave API"
         }
       }
     },
     "error": {
+      "invalid_auth": "La chiave API non è valida, è scaduta o è stata disattivata.",
+      "quota_exceeded": "La chiave API ha esaurito le richieste di oggi. Riprova dopo la mezzanotte.",
+      "out_of_scope": "La chiave API non è abilitata a questa funzione di iLMeteo.it.",
       "cannot_connect": "Impossibile connettersi a iLMeteo.it. Riprova più tardi.",
-      "no_data": "Nessun dato meteo disponibile per questo comune.",
-      "invalid_city": "Comune non valido."
+      "query_too_short": "Scrivi almeno 2 caratteri.",
+      "no_results": "Nessuna località trovata con questo nome.",
+      "invalid_place": "Località non valida."
     },
     "abort": {
-      "already_configured": "Questo comune è già configurato o già tracciato da un'altra istanza dell'integrazione.",
-      "reconfigure_successful": "Località aggiornata con successo."
+      "already_configured": "Questa località è già configurata.",
+      "reconfigure_successful": "Località aggiornata con successo.",
+      "reauth_successful": "Chiave API aggiornata con successo.",
+      "invalid_place": "Località non valida.",
+      "no_places_nearby": "Nessuna località trovata entro 15 km dalla posizione di casa. Usa la ricerca per nome.",
+      "missing_api_key": "Questa località non ha ancora una chiave API: inseriscila dalla richiesta di nuova autenticazione.",
+      "invalid_auth": "La chiave API non è valida, è scaduta o è stata disattivata.",
+      "quota_exceeded": "La chiave API ha esaurito le richieste di oggi. Riprova dopo la mezzanotte.",
+      "out_of_scope": "La chiave API non è abilitata a questa funzione di iLMeteo.it.",
+      "cannot_connect": "Impossibile connettersi a iLMeteo.it. Riprova più tardi."
     }
   },
   "options": {
@@ -82,10 +117,29 @@
       }
     }
   },
-  "issues": {
-    "box_parse_error": {
-      "title": "iLMeteo.it: dati non aggiornabili per {place_name}",
-      "description": "L'integrazione non riesce più a interpretare i dati {box_type} di iLMeteo.it per {place_name} — probabilmente iLMeteo ha modificato il formato della pagina. I dati mostrati potrebbero essere obsoleti finché il problema non viene risolto. Controlla se è disponibile un aggiornamento dell'integrazione, oppure segnala il problema."
+  "selector": {
+    "optional_sensors": {
+      "options": {
+        "temperature": "Temperatura (attuale)",
+        "apparent_temperature": "Temperatura percepita (attuale)",
+        "dew_point": "Punto di rugiada (attuale)",
+        "humidity": "Umidità (attuale)",
+        "pressure": "Pressione (attuale)",
+        "visibility": "Visibilità (attuale)",
+        "uv_index": "Indice UV (attuale)",
+        "solar_irradiance": "Irraggiamento solare stimato (attuale)",
+        "wind_speed": "Velocità del vento (attuale)",
+        "wind_gust": "Raffica (attuale)",
+        "wind_bearing": "Direzione del vento (attuale)",
+        "precipitation_hour": "Precipitazione nell'ora (attuale)",
+        "freezing_level": "Quota dello zero termico (attuale)",
+        "snow_level": "Quota neve (attuale)",
+        "temperature_min": "Temperatura minima (oggi)",
+        "temperature_max": "Temperatura massima (oggi)",
+        "precipitation_probability": "Probabilità di precipitazioni (oggi)",
+        "precipitation_today": "Precipitazione totale (oggi)",
+        "reliability": "Affidabilità della previsione (oggi)"
+      }
     }
   }
 }

@@ -127,6 +127,7 @@
         "pressure": "Pressure (current)",
         "visibility": "Visibility (current)",
         "uv_index": "UV index (current)",
+        "solar_irradiance": "Estimated solar irradiance (current)",
         "wind_speed": "Wind speed (current)",
         "wind_gust": "Wind gust (current)",
         "wind_bearing": "Wind bearing (current)",

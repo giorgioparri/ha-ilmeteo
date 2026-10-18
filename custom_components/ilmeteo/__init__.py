@@ -149,9 +149,10 @@ async def _async_notify_new_sensors(hass: HomeAssistant) -> None:
             "message": (
                 "L'integrazione ora usa le API ufficiali di iLMeteo.it e offre "
                 "nuovi sensori opzionali: temperatura percepita, punto di "
-                "rugiada, pressione, visibilità, indice UV, raffica, "
-                "precipitazione nell'ora e totale del giorno, quota dello zero "
-                "termico, quota neve e affidabilità della previsione.\n\n"
+                "rugiada, pressione, visibilità, indice UV, irraggiamento "
+                "solare stimato, raffica, precipitazione nell'ora e totale del "
+                "giorno, quota dello zero termico, quota neve e affidabilità "
+                "della previsione.\n\n"
                 "Per attivarli: Impostazioni → Dispositivi e servizi → "
                 "iLMeteo.it → Configura, per ogni località."
             ),

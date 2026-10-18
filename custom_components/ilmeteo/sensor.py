@@ -23,6 +23,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
     PERCENTAGE,
     UV_INDEX,
+    UnitOfIrradiance,
     UnitOfLength,
     UnitOfPrecipitationDepth,
     UnitOfPressure,
@@ -50,6 +51,7 @@ from .const import (
     SENSOR_PRESSURE,
     SENSOR_RELIABILITY,
     SENSOR_SNOW_LEVEL,
+    SENSOR_SOLAR_IRRADIANCE,
     SENSOR_TEMPERATURE,
     SENSOR_TEMPERATURE_MAX,
     SENSOR_TEMPERATURE_MIN,
@@ -143,6 +145,11 @@ _SENSOR_SPECS: dict[str, _Spec] = {
     ),
     SENSOR_UV_INDEX: _Spec(
         "Indice UV", _now("uv_index"), None, UV_INDEX, "mdi:sun-wireless-outline",
+    ),
+    SENSOR_SOLAR_IRRADIANCE: _Spec(
+        # An estimate from the UV index, not a measurement nor a PV output
+        "Irraggiamento solare stimato", _now("solar_irradiance"),
+        SensorDeviceClass.IRRADIANCE, UnitOfIrradiance.WATTS_PER_SQUARE_METER,
     ),
     SENSOR_WIND_GUST: _Spec(
         "Raffica",

@@ -127,6 +127,7 @@
         "pressure": "Pressione (attuale)",
         "visibility": "Visibilità (attuale)",
         "uv_index": "Indice UV (attuale)",
+        "solar_irradiance": "Irraggiamento solare stimato (attuale)",
         "wind_speed": "Velocità del vento (attuale)",
         "wind_gust": "Raffica (attuale)",
         "wind_bearing": "Direzione del vento (attuale)",

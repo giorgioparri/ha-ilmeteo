@@ -43,7 +43,7 @@ A [Home Assistant](https://www.home-assistant.io/) integration that exposes weat
 
 ## Screenshots
 
-![iLMeteo.it weather card](https://raw.githubusercontent.com/giorgioparri/ha-ilmeteo/v2.0.0-beta.1/images/card-demo.png)
+![iLMeteo.it weather card](https://raw.githubusercontent.com/giorgioparri/ha-ilmeteo/v2.0.0-beta.2/images/card-demo.png)
 
 ---
 
@@ -91,7 +91,7 @@ Open the integration's three-dot menu → **Reconfigure** to point an existing i
 
 Besides the main `weather` entity, you can enable dedicated `sensor` entities — either during initial setup or any time afterward via **Configure** (Options):
 
-- *Current hour:* temperature, apparent temperature, dew point, humidity, pressure, visibility, UV index, wind speed, wind gust, wind direction, precipitation in the hour, freezing level, snow level
+- *Current hour:* temperature, apparent temperature, dew point, humidity, pressure, visibility, UV index, estimated solar irradiance, wind speed, wind gust, wind direction, precipitation in the hour, freezing level, snow level
 - *Today:* minimum and maximum temperature, precipitation probability, total precipitation, forecast reliability
 
 These exist specifically to support Home Assistant's long-term statistics and history graphs, which weather-entity attributes cannot provide (attributes have no `state_class`). They are **off by default** — nothing changes for existing installs until you opt in. Deselecting an enabled sensor deletes it, including its history.

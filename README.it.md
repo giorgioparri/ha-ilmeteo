@@ -43,7 +43,7 @@ Un'integrazione per [Home Assistant](https://www.home-assistant.io/) che espone 
 
 ## Screenshot
 
-![iLMeteo.it weather card](https://raw.githubusercontent.com/giorgioparri/ha-ilmeteo/v2.0.0-beta.1/images/card-demo.png)
+![iLMeteo.it weather card](https://raw.githubusercontent.com/giorgioparri/ha-ilmeteo/v2.0.0-beta.2/images/card-demo.png)
 
 ---
 
@@ -91,7 +91,7 @@ Apri il menu a tre punti dell'integrazione → **Riconfigura** per puntare un'is
 
 Oltre all'entità `weather` principale, puoi abilitare entità `sensor` dedicate — durante la configurazione iniziale o in qualsiasi momento tramite **Configura** (Opzioni):
 
-- *Ora corrente:* temperatura, temperatura percepita, punto di rugiada, umidità, pressione, visibilità, indice UV, velocità del vento, raffica, direzione del vento, precipitazione nell'ora, quota dello zero termico, quota neve
+- *Ora corrente:* temperatura, temperatura percepita, punto di rugiada, umidità, pressione, visibilità, indice UV, irraggiamento solare stimato, velocità del vento, raffica, direzione del vento, precipitazione nell'ora, quota dello zero termico, quota neve
 - *Oggi:* temperatura minima e massima, probabilità di precipitazioni, precipitazione totale, affidabilità della previsione
 
 Questi sensori esistono specificamente per supportare le statistiche a lungo termine e i grafici storici di Home Assistant, che gli attributi dell'entità meteo non possono fornire (gli attributi non hanno `state_class`). Sono **disattivati per impostazione predefinita** — nulla cambia per le installazioni esistenti finché non si opta esplicitamente. Deselezionare un sensore già attivo lo elimina, inclusa la sua cronologia.

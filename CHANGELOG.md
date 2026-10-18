@@ -15,11 +15,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Forecasts update every 30 minutes. Each key has 1000 requests per day shared by all its locations: when the limit is reached the last forecasts stay visible and keep advancing hour by hour, a notification is shown and updates resume after midnight, Italian time.
 - Current conditions come from the forecast hour containing the current time; day and night come from the forecast itself instead of the sun position.
 - Heavy rain is shown as `pouring` when iLMeteo.it reports a strong precipitation intensity.
-- Alert notifications link to the location's page on ilmeteo.it.
+- On snow days and hours the precipitation amount is left empty: iLMeteo.it reports snow in centimetres, which Home Assistant would read as millimetres of rain.
+- Alert notifications link to the location's page on ilmeteo.it, built with the site's own address rule.
 - Diagnostics include the key status and today's quota; the API key is redacted.
 
 ### Added
-- 11 optional sensors: apparent temperature, dew point, pressure, visibility, UV index, wind gust, precipitation in the current hour, freezing level, snow level, total precipitation today and forecast reliability. Enable them from the integration options; after the upgrade a one-time notification lists them.
+- 12 optional sensors: apparent temperature, dew point, pressure, visibility, UV index, estimated solar irradiance, wind gust, precipitation in the current hour, freezing level, snow level, total precipitation today and forecast reliability. Enable them from the integration options; after the upgrade a one-time notification lists them.
 - The weather entity reports apparent temperature, dew point, pressure, visibility, UV index and wind gust.
 - Re-authentication flow, shown when iLMeteo.it rejects the key as invalid, expired or disabled.
 

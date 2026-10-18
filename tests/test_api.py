@@ -221,11 +221,13 @@ def test_parse_hourly_slot_values():
     assert slot.freezing_level == 3293
 
 
-def test_parse_hourly_day_slot_and_pv_estimate():
+def test_parse_hourly_day_slot_and_solar_irradiance():
+    # uvDetails.kWhProduction is, despite its name, an irradiance estimate in
+    # W/m2 derived from the UV index (iLMeteo, Oct 2026).
     slot = parse_hourly(_fixture("api_hourly_5658.json"))[12]  # 12:00, 8 Oct
     assert slot.is_night is False
     assert slot.uv_index == 0.99
-    assert slot.pv_production == 330.13
+    assert slot.solar_irradiance == 330.13
 
 
 def test_parse_hourly_null_wind_direction_survives():
@@ -373,6 +375,27 @@ def test_snow_detected_from_either_flag():
     payload = copy.deepcopy(_fixture("api_hourly_5658.json"))
     payload[0]["forecasts"][21]["precipitationDetails"]["isSnow"] = True  # flag only
     assert parse_hourly(payload)[21].snowfall == 1.66
+
+
+def _daily_with_snow(row_index=2, amount=8.0):
+    payload = copy.deepcopy(_fixture("api_daily_5658.json"))
+    row = payload[0]["forecasts"][row_index]
+    row["precipitationDetails"]["isSnow"] = True
+    row["precipitationInMm"] = amount
+    return payload
+
+
+def test_daily_snow_is_not_reported_as_millimetres_of_rain():
+    # iLMeteo: precipitationInMm is in cm on snow days, despite its name.
+    day = parse_daily(_daily_with_snow())[2]
+    assert day.precipitation is None
+    assert day.snowfall == 8.0
+
+
+def test_daily_rain_keeps_precipitation_and_has_no_snowfall():
+    day = parse_daily(_fixture("api_daily_5658.json"))[0]
+    assert day.precipitation == 0
+    assert day.snowfall is None
 
 
 def test_hourly_carries_snow_level():

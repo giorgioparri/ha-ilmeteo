@@ -175,7 +175,10 @@ class Place:
 class DailyForecast:
     """One day of the COMPOSITE daily forecast.
 
-    Speeds in m/s, precipitation in mm, pressure in hPa, freezing level in m.
+    Speeds in m/s, pressure in hPa, freezing level in m. precipitationInMm
+    is in mm for rain but in cm on snow days, despite its name (iLMeteo,
+    Oct 2026): a snow day therefore has precipitation None and the amount
+    in snowfall, in cm, as in the hourly slots.
     timeDetails.lightTime is deliberately not exposed: on daily data it only
     reflects the hour of the request, not the day.
     """
@@ -185,6 +188,7 @@ class DailyForecast:
     temperature_max: float | None
     temperature_min: float | None
     precipitation: float | None
+    snowfall: float | None
     precipitation_probability: float | None
     precipitation_intensity: str | None
     wind_speed: float | None
@@ -203,8 +207,10 @@ class HourlyForecast:
     hPa. The gateway reports precipitation in mm for rain and in cm for snow
     (glossary): a snow slot therefore has precipitation None and the amount
     in snowfall, in cm.
-    pv_production is the gateway's uvDetails.kWhProduction, whose unit and
-    reference system are still to be confirmed by iLMeteo.
+    solar_irradiance is the gateway's uvDetails.kWhProduction which, despite
+    its name, is an estimate of solar irradiance in W/m2 derived from the UV
+    index (1368 * sqrt(uv / 17)), not the output of a PV system (iLMeteo,
+    Oct 2026).
     """
 
     time: datetime
@@ -224,7 +230,7 @@ class HourlyForecast:
     snowfall: float | None
     freezing_level: float | None
     snow_level: float | None
-    pv_production: float | None
+    solar_irradiance: float | None
 
 
 # --- Parsing ---------------------------------------------------------------
@@ -324,13 +330,16 @@ def parse_daily(payload: Any) -> list[DailyForecast]:
             day = date.fromisoformat(str(row["forecastTs"])[:10])
         except (KeyError, ValueError):
             continue
+        amount = _num(row.get("precipitationInMm"))
+        is_snow = (row.get("precipitationDetails") or {}).get("isSnow") is True
         days.append(
             DailyForecast(
                 date=day,
                 outlook=_int(row.get("outlook")),
                 temperature_max=_num(row.get("maxTemperature")),
                 temperature_min=_num(row.get("minTemperature")),
-                precipitation=_num(row.get("precipitationInMm")),
+                precipitation=None if is_snow else amount,
+                snowfall=amount if is_snow else None,
                 precipitation_probability=_num(row.get("precipitationProbability")),
                 precipitation_intensity=_intensity(row),
                 wind_speed=_num(row.get("windSpeed")),
@@ -382,7 +391,7 @@ def parse_hourly(payload: Any) -> list[HourlyForecast]:
                 snowfall=amount if is_snow else None,
                 freezing_level=_num(row.get("freezingLevel")),
                 snow_level=_num(row.get("snowLevel")),
-                pv_production=_num(uv_details.get("kWhProduction")),
+                solar_irradiance=_num(uv_details.get("kWhProduction")),
             )
         )
     return slots

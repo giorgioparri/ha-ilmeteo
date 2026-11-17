@@ -19,6 +19,7 @@ from const import (
     OUTLOOK_CONDITION_MAP,
     POURING_INTENSITIES,
     POURING_OUTLOOKS,
+    SLUG_EXCEPTIONS,
     outlook_to_condition,
     place_page_url,
 )
@@ -259,6 +260,41 @@ def test_page_url_without_a_name_falls_back_to_the_homepage():
     assert place_page_url("") == DEFAULT_INFO_URL
     assert place_page_url("   ") == DEFAULT_INFO_URL
     assert place_page_url(None) == DEFAULT_INFO_URL
+
+
+# Places whose slug the rule cannot produce (iLMeteo's slug list, Nov 2026):
+# mostly duplicate names disambiguated by province, looked up by place id.
+
+def test_page_url_uses_the_exception_for_a_duplicate_name():
+    assert place_page_url("Brione", 929) == "https://www.ilmeteo.it/meteo/brione-tn"
+    assert place_page_url("Salò", 6082) == "https://www.ilmeteo.it/meteo/salo-bs"
+
+
+def test_page_url_uses_the_exception_when_the_slug_differs_from_the_name():
+    url = place_page_url("Lauro di San Nicandro Garganico", 20097)
+    assert url == "https://www.ilmeteo.it/meteo/lauro-fg"
+    assert place_page_url("Stromboli-878", 25126) == "https://www.ilmeteo.it/meteo/stromboli-878"
+
+
+def test_page_url_accepts_the_place_id_as_a_string():
+    # CONF_CITTA stores the id as a string.
+    assert place_page_url("Brione", "929") == "https://www.ilmeteo.it/meteo/brione-tn"
+
+
+def test_page_url_falls_back_to_the_rule_for_other_places():
+    assert place_page_url("Rapolano Terme", 5658) == "https://www.ilmeteo.it/meteo/rapolano+terme"
+    assert place_page_url("Brione") == "https://www.ilmeteo.it/meteo/brione"
+
+
+def test_page_url_exception_without_a_name():
+    assert place_page_url(None, 929) == "https://www.ilmeteo.it/meteo/brione-tn"
+
+
+def test_slug_exceptions_are_well_formed():
+    assert len(SLUG_EXCEPTIONS) >= 100
+    for place_id, slug in SLUG_EXCEPTIONS.items():
+        assert isinstance(place_id, int), place_id
+        assert slug and slug == slug.strip().lower() and " " not in slug, (place_id, slug)
 
 
 if __name__ == "__main__":

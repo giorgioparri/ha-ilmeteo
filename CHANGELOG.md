@@ -16,7 +16,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Current conditions come from the forecast hour containing the current time; day and night come from the forecast itself instead of the sun position.
 - Heavy rain is shown as `pouring` when iLMeteo.it reports a strong precipitation intensity.
 - On snow days and hours the precipitation amount is left empty: iLMeteo.it reports snow in centimetres, which Home Assistant would read as millimetres of rain.
-- Alert notifications link to the location's page on ilmeteo.it, built with the site's own address rule.
+- Alert notifications and the device page link to the location's page on ilmeteo.it, built with the site's own address rule; places sharing a name with another one use the address iLMeteo.it assigns them (e.g. `brione-tn`).
 - Diagnostics include the key status and today's quota; the API key is redacted.
 
 ### Added

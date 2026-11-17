@@ -1,6 +1,8 @@
 """Constants for the iLMeteo.it integration."""
 
+import json
 import unicodedata
+from pathlib import Path
 from urllib.parse import quote
 
 DOMAIN = "ilmeteo"
@@ -159,7 +161,8 @@ def outlook_to_condition(
 # an ICU transliterator: Any-Latin; remove nonspacing marks, punctuation and
 # symbols; Latin-ASCII; lower; collapse spaces; separators -> '+'.
 # Punctuation is dropped, not replaced: "Castiglione d'Orcia" becomes
-# "castiglione+dorcia". Places with duplicate names may have other slugs.
+# "castiglione+dorcia". Places with duplicate names have other slugs: those
+# come from the bundled exceptions, looked up by place id.
 # ---------------------------------------------------------------------------
 
 # Latin-ASCII letters that NFKD does not decompose.
@@ -169,8 +172,37 @@ _LATIN_ASCII = str.maketrans({
 })
 
 
-def place_page_url(name: str | None) -> str:
-    """Return the ilmeteo.it page of a place, or the homepage without a name."""
+def _load_slug_exceptions() -> dict[int, str]:
+    """Read the bundled place id -> slug exceptions.
+
+    Read once at import, which Home Assistant does outside the event loop.
+    The file holds only the places whose slug the rule below cannot produce,
+    taken from iLMeteo's slug list: mostly duplicate names disambiguated by
+    province ("brione-tn"). A missing or broken file only costs the
+    exceptions, never the link.
+    """
+    path = Path(__file__).parent / "data" / "slug_exceptions.json"
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+        return {int(place_id): str(slug) for place_id, slug in raw.items()}
+    except (OSError, ValueError, AttributeError):
+        return {}
+
+
+SLUG_EXCEPTIONS: dict[int, str] = _load_slug_exceptions()
+
+
+def place_page_url(name: str | None, place_id: int | str | None = None) -> str:
+    """Return the ilmeteo.it page of a place, or the homepage without a name.
+
+    The place id, when known, is looked up in SLUG_EXCEPTIONS first.
+    """
+    try:
+        exception = SLUG_EXCEPTIONS.get(int(place_id)) if place_id is not None else None
+    except ValueError:
+        exception = None
+    if exception:
+        return PLACE_PAGE_BASE_URL + quote(exception, safe="+")
     if not name or not name.strip():
         return DEFAULT_INFO_URL
     decomposed = unicodedata.normalize("NFKD", name.translate(_LATIN_ASCII))

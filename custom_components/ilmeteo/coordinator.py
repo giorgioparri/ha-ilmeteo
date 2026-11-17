@@ -188,8 +188,8 @@ class IlMeteoCoordinator(DataUpdateCoordinator[Snapshot]):
 
     @property
     def link(self) -> str:
-        """The place's page on ilmeteo.it."""
-        return place_page_url(self.gateway_name)
+        """The place's page on ilmeteo.it (bundled slug exceptions first)."""
+        return place_page_url(self.gateway_name, self.place_id)
 
     async def _async_update_data(self) -> Snapshot:
         now = dt_util.now()

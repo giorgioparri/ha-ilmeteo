@@ -12,13 +12,11 @@ jobs:
   release:
     name: Create GitHub Release
     runs-on: ubuntu-latest
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     permissions:
       contents: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Resolve version from tag
         id: version
@@ -140,12 +138,12 @@ jobs:
           # Trim trailing whitespace, then leading/trailing blank lines.
           sed -i -e 's/[[:space:]]*$//' -e '/./,$!d' release_notes.md
 
-          # Unwrap hard-wrapped paragraphs. CHANGELOG.md is wrapped at ~80
-          # columns, which reads well in the repo because GitHub joins single
-          # newlines when rendering a .md file. Release bodies are rendered
-          # with hard line breaks instead, where every newline becomes a <br>,
-          # so the wrapping would show up as ragged mid-sentence breaks.
-          # Fold each block onto one line and let the browser wrap it.
+          # Unwrap hard-wrapped paragraphs. CHANGELOG.md entries are written
+          # one per line, so today this changes nothing. It stays as a safety
+          # net: release bodies are rendered with hard line breaks, where
+          # every newline becomes a <br>, so an entry wrapped by mistake
+          # would arrive broken mid-sentence. Each block goes onto one line
+          # and the browser wraps it.
           awk '
             function flush() { if (buf != "") { print buf; buf = "" } }
             BEGIN { buf = ""; fence = 0 }
@@ -205,7 +203,7 @@ jobs:
           echo "Zip layout OK"
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ github.ref_name }}
           name: "ha-ilmeteo ${{ github.ref_name }}"
